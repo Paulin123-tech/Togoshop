@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Togoshop, la marketplace du Togo</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="top"><div class="w"><span>Livraison offerte dès 100 000 FCFA. Code TOGO10 : 10 % de remise.</span><button onclick="dbv()">Voir la base de données</button></div></div>
+<header>
+ <div class="w bar">
+  <a class="logo" href="#" onclick="view('home')">Togo<span>shop</span></a>
+  <form class="sr" onsubmit="event.preventDefault();S.q=qi.value.trim().toLowerCase();S.c=0;S.b='';view('shop')"><input id="qi" type="search" placeholder="Rechercher un produit, une voiture, une maison" aria-label="Rechercher"><button>Rechercher</button></form>
+  <div class="ub">
+   <button class="ib" onclick="compte()"><i>👤</i><span id="uname">Connexion</span></button>
+   <button class="ib" onclick="S.fo=!S.fo;view('shop')"><i>♥</i><span>Favoris</span><b id="nf">0</b></button>
+   <button class="ib" onclick="oc(true)"><i>🛒</i><span>Panier</span><b id="nc">0</b></button>
+  </div>
+ </div>
+ <nav><div class="w" id="nav" role="group" aria-label="Navigation"></div></nav>
+</header>
+
+<main class="w">
+ <div id="home">
+  <section class="hr">
+   <div>
+    <h1>Tout ce qu’il vous faut, <em>au même endroit</em>.</h1>
+    <p>High-tech, électroménager, voitures neuves et d’occasion, maisons. Payez par Mixx by Yas, Flooz ou à la livraison.</p>
+    <div class="bts"><button class="btn" onclick="S.c=0;S.b='';view('shop')">Découvrir la boutique</button><button class="bt2" onclick="view('seller')">Devenir vendeur</button></div>
+    <div class="stt"><div><b>240+</b><span>annonces</span></div><div><b>8</b><span>catégories</span></div><div><b>48 h</b><span>livraison à Lomé</span></div></div>
+   </div>
+   <div class="dev" aria-hidden="true"><div class="dv">📱</div><div class="dv">🚗</div><div class="dv">🏠</div></div>
+  </section>
+  <section class="trust"><div><b>Livraison rapide</b>Lomé et tout le Togo</div><div><b>Paiement mobile</b>Mixx by Yas, Flooz</div><div><b>Achat en confiance</b>Retours sous 7 jours</div><div><b>Support client</b>7 jours sur 7</div></section>
+  <section class="sec"><div class="hd"><h2>Explorer par catégorie</h2></div><div class="cg" id="cc"></div></section>
+  <section class="sec"><div class="hd"><h2>Marques populaires</h2><span>Du smartphone à la maison</span></div><div class="pt"><button class="bk" onclick="S.c=1;S.b='Apple';view('shop')">Apple</button><button class="bk" onclick="S.c=1;S.b='Samsung';view('shop')">Samsung</button><button class="bk" onclick="S.c=1;S.b='Xiaomi';view('shop')">Xiaomi</button><button class="bk" onclick="S.c=1;S.b='Tecno';view('shop')">Tecno</button><button class="bk" onclick="S.c=3;S.b='HP';view('shop')">HP</button><button class="bk" onclick="S.c=3;S.b='Lenovo';view('shop')">Lenovo</button><button class="bk" onclick="S.c=5;S.b='Hisense';view('shop')">Hisense</button><button class="bk" onclick="S.c=5;S.b='LG';view('shop')">LG</button><button class="bk" onclick="S.c=6;S.b='Toyota';view('shop')">Toyota</button><button class="bk" onclick="S.c=6;S.b='Hyundai';view('shop')">Hyundai</button><button class="bk" onclick="S.c=6;S.b='Kia';view('shop')">Kia</button><button class="bk" onclick="S.c=8;S.b='Lomé';view('shop')">Maisons à Lomé</button></div></section>
+  <section class="sec"><div class="hd"><h2>Voitures et maisons à la une</h2><span>Réservez en ligne, visitez ensuite</span></div><div class="grid" id="vd"></div></section>
+  <section class="sec" id="meilleures"><div class="hd"><h2>Meilleures ventes</h2><span>Les mieux notés par nos clients</span></div><div class="grid" id="bs"></div></section>
+  <section class="flash"><div class="hd"><h2>Ventes flash</h2><span>Se termine dans <span class="cd" id="cd">00:00:00</span></span></div><div class="grid" id="fl"></div></section>
+  <section class="biz"><div><h2>Entrepreneur ? Vendez sur Togoshop</h2><p>Abonnez-vous et publiez vos propres produits dans la boutique. Développez votre activité grâce aux partenariats avec d’autres entreprises.</p><button class="btn" onclick="view('seller')">Découvrir les abonnements</button></div>
+   <ul><li>Publiez vos produits en ligne</li><li>Badge vendeur sur vos annonces</li><li>Demandes de partenariat avec d’autres entreprises</li><li>Abonnement dès 10 000 FCFA par mois</li></ul></section>
+  <section class="sec"><div class="hd"><h2>Comment ça marche</h2></div>
+   <div class="stp"><div><b>1</b><h3>Choisissez</h3><p>Parcourez le catalogue, filtrez par prix ou par note et comparez en un coup d’œil.</p></div><div><b>2</b><h3>Commandez</h3><p>Créez votre compte, remplissez le panier et payez en toute simplicité.</p></div><div><b>3</b><h3>Recevez</h3><p>Livraison à domicile ou retrait à Lomé. Pour les voitures et les maisons, nous confirmons votre réservation.</p></div></div></section>
+  <section class="sec"><div class="hd"><h2>Un réseau de partenaires</h2><span>Types de partenaires (démonstration)</span></div>
+   <div class="pt"><span>🏦 Banques et financement</span><span>🚚 Transport et livraison</span><span>🛡️ Assurance auto et habitation</span><span>📶 Opérateurs mobiles</span><span>🏭 Fournisseurs et constructeurs</span></div></section>
+  <section class="sec"><div class="hd"><h2>Ils nous font confiance</h2><span>Avis de démonstration</span></div>
+   <div class="qt"><div><p>Mon ordinateur est arrivé en deux jours, bien emballé et conforme à la description.</p><small>Kossi, Lomé</small></div><div><p>Le paiement par Flooz est très pratique. Je recommande pour les smartphones.</p><small>Akouvi, Kara</small></div><div><p>J’ai publié mes produits d’électroménager en quelques minutes avec l’abonnement Pro.</p><small>Yao, Kpalimé</small></div></div></section>
+  <section class="cta"><h2>Prêt à commencer ?</h2><p>Achetez, vendez et développez votre réseau sur une seule plateforme.</p><button class="btn" onclick="S.c=0;S.b='';view('shop')">Voir toute la boutique</button></section>
+ </div>
+
+ <section id="shop" hidden>
+  <div class="shop">
+   <aside class="flt" aria-label="Filtres">
+    <div><h3>Budget</h3><select id="pf" onchange="[S.pa,S.pb]=this.value.split('-').map(Number);go()" aria-label="Budget"><option value="0-1000000000">Tous les prix</option><option value="0-50000">Moins de 50 000 FCFA</option><option value="50000-500000">50 000 à 500 000 FCFA</option><option value="500000-5000000">500 000 à 5 millions FCFA</option><option value="5000000-1000000000">Plus de 5 millions FCFA</option></select></div>
+    <div><h3>Note minimale</h3><select onchange="S.nt=+this.value;go()" aria-label="Note minimale"><option value="0">Toutes les notes</option><option value="4">4 étoiles et plus</option><option value="4.5">4,5 étoiles et plus</option></select></div>
+    <label><input type="checkbox" onchange="S.sk=this.checked;go()"> En stock uniquement</label>
+    <button class="ad" onclick="reset()">Réinitialiser</button>
+   </aside>
+   <div>
+    <div class="tb"><div class="hd" style="margin:0"><h2 id="ti">Toute la boutique</h2><span id="nb"></span></div>
+     <select onchange="S.tri=this.value;go()" aria-label="Trier"><option value="p">Pertinence</option><option value="a">Prix croissant</option><option value="d">Prix décroissant</option><option value="n">Mieux notés</option></select></div>
+    <div class="bch" id="bch"></div>
+    <div class="grid" id="grid"></div>
+   </div>
+  </div>
+ </section>
+ <section id="seller" hidden><div id="sv"></div></section>
+</main>
+
+<footer><div class="w">
+ <div><b>Togoshop</b>Marketplace basée à Lomé : high-tech, électroménager, voitures et maisons. Projet de groupe avec base de données MySQL.</div>
+ <div><b>Aide</b>Suivre ma commande<br>Livraison<br>Retours</div>
+ <div><b>Vendeurs</b>Abonnements<br>Publier un produit<br>Partenariats</div>
+ <div><b>Paiement</b>Mixx by Yas<br>Flooz<br>Carte bancaire</div>
+</div></footer>
+
+<div class="veil" id="veil" onclick="oc(false)"></div>
+<aside class="dr" id="dr" aria-label="Panier" aria-hidden="true">
+ <div class="dh"><h2>Votre panier</h2><button class="x" onclick="oc(false)" aria-label="Fermer">✕</button></div>
+ <div class="ls" id="ls"></div>
+ <div class="ft"><div class="tt"><span>Sous-total</span><span id="stt">0 FCFA</span></div><button class="pay" id="pay" onclick="oc(false);checkout()">Passer la commande</button></div>
+</aside>
+<dialog id="dlg"></dialog><div id="toast" role="status"></div>
+<script src="node_modules/@supabase/supabase-js/dist/umd/supabase.js"></script>
+<script src="supabase.local.js"></script>
+<script src="supabase-adapter.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

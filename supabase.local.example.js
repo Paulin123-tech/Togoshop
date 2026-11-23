@@ -1,0 +1,4 @@
+window.SUPABASE_LOCAL_CONFIG = {
+  url: "http://127.0.0.1:54321",
+  anonKey: "REMPLACER_APRES_SUPABASE_START"
+};

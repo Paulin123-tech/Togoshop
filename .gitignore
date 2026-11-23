@@ -1,0 +1,10 @@
+.env
+.env.local
+node_modules/
+test-results/
+playwright-report/
+supabase/.branches/
+supabase/.temp/
+supabase.local.js
+.vercel/
+
