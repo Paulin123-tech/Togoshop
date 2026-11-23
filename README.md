@@ -12,9 +12,9 @@
    git remote add origin https://github.com/VOTRE-NOM/VOTRE-DEPOT.git
    git push -u origin main
    ```
-   Remplacez l'adresse par celle de votre depot GitHub. `supabase.local.js` est exclu de Git car il contient la configuration de Supabase local.
+   Remplacez l'adresse par celle de votre depot GitHub. `supabase.local.js` est exclu de Git ; la configuration publique de production est dans `supabase.config.js`.
 3. Connectez-vous sur https://vercel.com/, choisissez **Add New → Project**, puis **Import** le depot GitHub.
-4. Choisissez le preset **Other**, la commande de build `npm run build` et le dossier de sortie `.` puis cliquez sur **Deploy**.
+4. Choisissez le preset **Other**, laissez la commande de build vide et utilisez `.` comme dossier de sortie. `vercel.json` configure déjà la racine du projet. Le site est statique et ne nécessite pas de build.
 
 Vercel fournit une adresse HTTPS et redéploie automatiquement le site à chaque push sur `main`. Pour un domaine personnel, ajoutez-le dans les paramètres **Domains** du projet Vercel.
 
@@ -31,11 +31,11 @@ Le schéma, les règles de sécurité RLS et les données de démonstration sont
    ```
    Le `project ref` se trouve dans l’URL ou les paramètres du projet Supabase.
 3. Dans **SQL Editor** du tableau de bord Supabase, exécutez une fois `supabase/seed.sql` pour charger le catalogue de démonstration.
-4. Dans les paramètres du projet Vercel, ajoutez `SUPABASE_URL` et `SUPABASE_ANON_KEY` depuis **Project Settings → API**. Utilisez la clé publique `anon`/`publishable` uniquement, jamais la clé `service_role`/`secret`.
-5. Redéployez Vercel. `npm run build` génère alors automatiquement la configuration publique utilisée par l’application.
+4. `supabase.config.js` fournit au navigateur l’URL du projet et la clé publique `anon`/`publishable`. Cette clé est destinée à être publique ; ne mettez jamais une clé `service_role`/`secret` dans le dépôt.
+5. Aucun réglage de variables d’environnement ni redéploiement de build n’est nécessaire pour cette configuration statique.
 6. Dans Supabase **Authentication → URL Configuration**, définissez l’URL du site sur le domaine Vercel et ajoutez aussi `http://127.0.0.1:5500/**` aux URL de redirection pour les tests locaux.
 
-Sans ces variables, le site reste consultable avec le catalogue de démonstration, mais les comptes, commandes, paniers et favoris ne seront pas enregistrés dans Supabase.
+Le catalogue est lu depuis Supabase dès que le projet est joignable. Les comptes, commandes, paniers et favoris nécessitent une session authentifiée.
 
 ## Lancer le site
 Ouvrir ce dossier dans VS Code, puis clic droit sur `index.html` > "Open with Live Server" (ou double-clic sur le fichier).

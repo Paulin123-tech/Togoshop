@@ -1,5 +1,5 @@
 window.TogoshopSupabase = (() => {
-  const config = window.SUPABASE_LOCAL_CONFIG || null;
+  const config = window.SUPABASE_CONFIG || window.SUPABASE_LOCAL_CONFIG || null;
   let client = null;
 
   if (
