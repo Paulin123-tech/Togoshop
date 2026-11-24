@@ -11,7 +11,7 @@ ls.get("sell",[]).forEach(r=>P.push(adapt(r)));
 const stk=ls.get("stk",{});P.forEach(p=>{if(stk[p.id]!=null)p.s=stk[p.id]});
 const prod=id=>P.find(p=>p.id==id),cn=id=>CATS.find(c=>c[0]==id)[1];
 const S={c:0,q:"",tri:"p",pa:0,pb:1e9,nt:0,sk:false,fo:false,b:"",lim:24,sig:"",v:"home",liv:"std",promo:false,
- cart:ls.get("cart",{}),sell:ls.get("sell",[]),own:ls.get("own",{}),abos:ls.get("abos",{}),parts:ls.get("parts",[]),fav:ls.get("fav",[]),me:ls.get("me",null),clients:ls.get("clients",[]),cmds:ls.get("cmds",[]),lignes:ls.get("lignes",[])};
+ cart:ls.get("cart",{}),sell:ls.get("sell",[]),own:ls.get("own",{}),abos:ls.get("abos",{}),parts:ls.get("parts",[]),fav:ls.get("fav",[]),me:ls.get("me",null),clients:ls.get("clients",[]),cmds:ls.get("cmds",[]),lignes:ls.get("lignes",[]),isAdmin:false};
 const PAYMENT_DEMO=Object.freeze({card:"4242424242424242",cvv:"123",mobile:"22800000000",code:"123456"});
 const PAYMENT_LABELS={carte:"Carte bancaire",tmoney:"T-Money",flooz:"Flooz",cod:"Paiement à la livraison"};
 const FACTURES=new Map();
@@ -29,7 +29,7 @@ function card(p){const f=S.fav.includes(p.id),b=p.o?`<span class="bd">-${Math.ro
  <span class="sk ${p.s<5?"lo":""}">${p.s==0?"Rupture de stock":p.s<5?"Plus que "+p.s+" en stock":"En stock"}</span>
  <div class="by"><span class="pr">${p.o?`<s>${fmt(p.o)}</s>`:""}${fmt(p.p)}</span><button class="ad" ${p.s?"":"disabled"} onclick="add(${p.id})">${RES.includes(p.c)?"Réserver":"Ajouter"}</button></div></div></article>`}
 function go(){
- $("nav").innerHTML=`<button class="nv" aria-pressed="${S.v=="home"}" onclick="view('home')">Accueil</button>`+[[0,"Boutique"],...CATS].map(([i,n])=>`<button class="nv" aria-pressed="${S.v=="shop"&&S.c===i}" onclick="S.c=${i};S.b='';view('shop')">${n}</button>`).join("")+`<button class="nv" aria-pressed="${S.v=="seller"}" onclick="view('seller')">Espace vendeur</button>`;
+ $("nav").innerHTML=`<button class="nv" aria-pressed="${S.v=="home"}" onclick="view('home')">Accueil</button>`+[[0,"Boutique"],...CATS].map(([i,n])=>`<button class="nv" aria-pressed="${S.v=="shop"&&S.c===i}" onclick="S.c=${i};S.b='';view('shop')">${n}</button>`).join("")+`<button class="nv" aria-pressed="${S.v=="seller"}" onclick="view('seller')">Espace vendeur</button>`+(S.isAdmin?`<button class="nv" aria-pressed="${S.v=="admin"}" onclick="view('admin')">Administration</button>`:"");
  let l=P.filter(p=>(!S.c||p.c===S.c)&&(!S.b||MQ(p)===S.b)&&(p.n+" "+cn(p.c)).toLowerCase().includes(S.q)&&p.p>=S.pa&&p.p<=S.pb&&p.r>=S.nt&&(!S.sk||p.s>0)&&(!S.fo||S.fav.includes(p.id)));
  if(S.tri=="a")l.sort((a,b)=>a.p-b.p);if(S.tri=="d")l.sort((a,b)=>b.p-a.p);if(S.tri=="n")l.sort((a,b)=>b.r-a.r);
  $("ti").textContent=S.fo?"Mes favoris":(S.c?cn(S.c):"Toute la boutique")+(S.b?" : "+S.b:"");$("nb").textContent=l.length+(l.length>1?" produits":" produit");
@@ -184,9 +184,33 @@ async function compte(){if(!S.me)return auth("in");
   return `<div class="opt" style="display:block"><div class="ro"><b>Commande n° ${esc(c.id_commande)}</b><span>${fmt(invoice.total)}</span></div><div class="ro"><span>${esc(factureDate(c.date_commande))}</span><span class="sk">${esc(c.statut)}</span></div><small>${lines.map(line=>`${line.quantite} × ${esc(line.nom)}`).join(", ")}</small><div style="margin-top:10px">${factureButton(c.id_commande)}</div></div>`
  }).join(""):`<p class="em" style="padding:16px 0">Aucune commande pour l’instant.</p>`)+`<button class="ad" onclick="logout()">Se déconnecter</button>`)}
 
-function calc(){let st=0;for(const id in S.cart)st+=prod(id).p*S.cart[id];const rem=S.promo?Math.round(st*.1):0;
+function calc(){let st=0;for(const id in S.cart)st+=prod(id).p*S.cart[id];const rem=S.promo?Math.min(st,Number(S.promo.remise)||0):0;
  let fr=!st?0:S.liv=="ret"?0:S.liv=="exp"?3000:(st-rem>=100000?0:1500);return{st,rem,fr,tot:st-rem+fr}}
-function sum(){const c=calc();$("sum").innerHTML=`<div class="ro"><span>Sous-total</span><span>${fmt(c.st)}</span></div>${c.rem?`<div class="ro"><span>Remise TOGO10</span><span>-${fmt(c.rem)}</span></div>`:""}<div class="ro"><span>Livraison</span><span>${c.fr?fmt(c.fr):"Offerte"}</span></div><div class="ro tt" style="margin-top:6px"><span>Total</span><span>${fmt(c.tot)}</span></div>`}
+function sum(){const c=calc();$("sum").innerHTML=`<div class="ro"><span>Sous-total</span><span>${fmt(c.st)}</span></div>${c.rem?`<div class="ro"><span>Remise ${esc(S.promo.code)}</span><span>-${fmt(c.rem)}</span></div>`:""}<div class="ro"><span>Livraison</span><span>${c.fr?fmt(c.fr):"Offerte"}</span></div><div class="ro tt" style="margin-top:6px"><span>Total</span><span>${fmt(c.tot)}</span></div>`}
+function clearPromo(){S.promo=null;const message=$("promo-message");if(message)message.textContent="";sum()}
+async function applyPromo(){
+ const input=$("pc"),message=$("promo-message"),code=input.value.trim().toUpperCase();
+ if(!code){clearPromo();if(message)message.textContent="Saisissez un code promotionnel.";return}
+ try{
+  if(window.TogoshopSupabase&&TogoshopSupabase.enabled){
+   for(const id in S.cart)await TogoshopSupabase.setCart(+id,S.cart[id]);
+   const result=await TogoshopSupabase.previewPromo(code);
+   if(input.value.trim().toUpperCase()!==code)return;
+   S.promo={code:result.code,remise:Number(result.remise)};
+  }else if(code==="TOGO10"){
+   let subtotal=0;for(const id in S.cart)subtotal+=prod(id).p*S.cart[id];
+   S.promo={code,remise:Math.round(subtotal*.1)};
+  }else{
+   throw new Error("Code promotionnel invalide.");
+  }
+  if(message)message.textContent=`Code ${S.promo.code} appliqué : remise de ${fmt(S.promo.remise)}.`;
+ }catch(error){
+   if(input.value.trim().toUpperCase()!==code)return;
+  S.promo=null;
+  if(message)message.textContent=error.message||"Impossible de valider ce code promotionnel.";
+ }
+ sum()
+}
 function clearPaymentInputs(){document.querySelectorAll("[data-payment-sensitive]").forEach(input=>{input.value=""})}
 function setPaymentMessage(message){const node=$("payment-error");if(node)node.textContent=message}
 function demoPaymentBanner(){return `<div class="demo-banner" role="note"><strong>Mode démonstration.</strong> Aucun paiement réel, n’entrez pas vos vraies coordonnées.</div>`}
@@ -274,22 +298,24 @@ function checkout(){
  if(!S.me)return auth("in",checkout);
  const L=[["std","Standard, 2 à 4 jours","1 500 FCFA"],["exp","Express, 24 heures","3 000 FCFA"],["ret","Retrait en boutique à Lomé","Gratuit"]];
  const M=[["tmoney","T-Money"],["flooz","Flooz"],["carte","Carte bancaire"],["cod","Paiement à la livraison"]];
- S.liv="std";paymentFlow={mode:"tmoney",active:false,verified:false,attempts:0};
+ S.liv="std";S.promo=null;paymentFlow={mode:"tmoney",active:false,verified:false,attempts:0};
  show(`<h2>Finaliser la commande</h2>${demoPaymentBanner()}
  <form id="co" autocomplete="off" onsubmit="valider(event)"><h3>Adresse de livraison</h3><div class="gp"><input class="f" name="adresse" placeholder="Quartier et rue" required><select name="ville" aria-label="Ville">${["Lomé","Kpalimé","Atakpamé","Sokodé","Kara","Aného"].map(v=>`<option>${v}</option>`).join("")}</select></div>
  <h3>Mode de livraison</h3>${L.map(([v,n,p],i)=>`<label class="opt"><input type="radio" name="liv" value="${v}" ${i?"":"checked"} onchange="S.liv=this.value;sum()">${n}<b>${p}</b></label>`).join("")}
  <h3>Paiement</h3>${M.map(([v,n],i)=>`<label class="opt"><input type="radio" name="paiement" value="${v}" ${i?"":"checked"} onchange="paymentModeChanged(this.value)">${n}</label>`).join("")}
  <div id="payment-fields">${paymentFieldsHtml("tmoney")}</div>
- <h3>Code promo</h3><div class="gp"><input class="f" id="pc" placeholder="TOGO10"><button type="button" class="ad" onclick="S.promo=pc.value.trim().toUpperCase()=='TOGO10';toast(S.promo?'Code appliqué':'Code invalide');sum()">Appliquer</button></div>
+ <h3>Code promo</h3><div class="gp"><input class="f" id="pc" placeholder="TOGO10" oninput="clearPromo()"><button type="button" class="ad" onclick="applyPromo()">Appliquer</button></div><p id="promo-message" role="status"></p>
  <h3>Récapitulatif</h3><div id="sum"></div><button class="pay" id="checkout-submit" style="margin-top:14px">Confirmer la commande</button></form>`);sum()
 }
 async function saveCheckoutOrder(order,paymentStatus){
- const c=calc(),paymentLabel=PAYMENT_LABELS[order.paymentMode]||order.paymentMode;
+ let c=calc();const paymentLabel=PAYMENT_LABELS[order.paymentMode]||order.paymentMode;
  if(window.TogoshopSupabase&&TogoshopSupabase.enabled&&S.me){
   try{
    for(const id in S.cart)await TogoshopSupabase.setCart(+id,S.cart[id]);
    const mode={std:"standard",exp:"express",ret:"retrait"}[order.livraison]||"standard";
-   const id=await TogoshopSupabase.placeOrder(order.adresse,order.ville,mode,order.paymentMode,order.codePromo);
+   const created=await TogoshopSupabase.placeOrder(order.adresse,order.ville,mode,order.paymentMode,order.codePromo);
+   const id=created.id_commande;
+   c={st:Number(created.sous_total),rem:Number(created.remise),fr:Number(created.frais_livraison),tot:Number(created.total)};
    const invoice=factureDepuisCommande(id,{...order,date_commande:new Date().toISOString()},Object.keys(S.cart).map(pid=>({nom:prod(pid)?.n||"Produit",quantite:S.cart[pid],prix:prod(pid)?.p||0})),{sousTotal:c.st,livraison:c.fr,remise:c.rem,total:c.tot});
    S.cart={};S.promo=false;save();await initSupabaseCatalog();cart();
    show(`<h2>Merci ${esc(S.me.prenom)}, commande confirmée</h2><p>Commande n° <b>${esc(id)}</b>, total ${fmt(c.tot)}. Livraison à ${esc(order.adresse+", "+order.ville)}.</p><p><small>Paiement : ${esc(paymentLabel)} — ${esc(paymentStatus)}. Seuls le mode et le statut sont enregistrés.</small></p>${factureButton(id)} <button class="btn" style="background:var(--ind);color:var(--indk)" onclick="dlg.close()">Continuer mes achats</button>`)
@@ -306,7 +332,7 @@ async function saveCheckoutOrder(order,paymentStatus){
 async function valider(e){
  e.preventDefault();
  const form=e.currentTarget,mode=form.querySelector('input[name="paiement"]:checked').value;
- const order={adresse:form.elements.namedItem("adresse").value.trim(),ville:form.elements.namedItem("ville").value,livraison:form.elements.namedItem("liv").value,paymentMode:mode,codePromo:S.promo?"TOGO10":""};
+ const order={adresse:form.elements.namedItem("adresse").value.trim(),ville:form.elements.namedItem("ville").value,livraison:form.elements.namedItem("liv").value,paymentMode:mode,codePromo:S.promo?S.promo.code:""};
  await processDemoPayment(mode,async(paymentMode,paymentStatus)=>{
   order.paymentMode=paymentMode;await saveCheckoutOrder(order,paymentStatus)
  },true)
@@ -458,12 +484,65 @@ function vend(){
  }
  $("sv").innerHTML=h
 }
-function view(v){S.v=v;$("home").hidden=v!="home";$("shop").hidden=v!="shop";$("seller").hidden=v!="seller";go();if(window.scrollTo)window.scrollTo(0,0)}
+let adminAssetsPromise=null;
+function loadAdminAssets(){
+ if(window.AdminBackOffice)return Promise.resolve();
+ if(adminAssetsPromise)return adminAssetsPromise;
+ adminAssetsPromise=new Promise((resolve,reject)=>{
+  const stylesheet=document.createElement("link");
+  stylesheet.rel="stylesheet";stylesheet.href="admin.css";
+  const script=document.createElement("script");
+  script.src="admin.js";
+  script.onload=()=>resolve();
+  script.onerror=()=>reject(new Error("Impossible de charger le back-office administrateur"));
+  document.head.appendChild(stylesheet);
+  document.body.appendChild(script);
+ });
+ return adminAssetsPromise;
+}
+async function ouvrirAdministration(){
+ if(!S.me){auth("in",()=>view("admin"));return}
+ S.v="admin";$("home").hidden=true;$("shop").hidden=true;$("seller").hidden=true;$("admin").hidden=false;
+ const root=$("admin-root");root.textContent="Vérification des droits administrateur…";
+ try{
+  if(!window.TogoshopSupabase||!TogoshopSupabase.enabled){
+   S.isAdmin=false;go();root.textContent="Accès refusé";
+   return;
+  }
+  if(!await TogoshopSupabase.isAdmin()){
+   S.isAdmin=false;go();root.textContent="Accès refusé";
+   return;
+  }
+  S.isAdmin=true;go();
+  await loadAdminAssets();
+  window.AdminBackOffice.render();
+ }catch(error){
+  S.isAdmin=false;go();
+  root.textContent="La vérification ou le chargement du back-office a échoué : "+(error.message||"erreur inconnue");
+  toast("Back-office indisponible");
+ }
+ if(window.scrollTo)window.scrollTo(0,0);
+}
+async function rafraichirDroitsAdmin(){
+ if(!S.me||!window.TogoshopSupabase||!TogoshopSupabase.enabled){S.isAdmin=false;return}
+ try{
+  S.isAdmin=await TogoshopSupabase.isAdmin();
+  if(S.v!=="admin")go();
+ }catch(error){
+  S.isAdmin=false;
+  if(S.v!=="admin")go();
+  toast("Vérification du rôle administrateur impossible : "+(error.message||"erreur inconnue"));
+ }
+}
+function view(v){
+ if(v==="admin"){ouvrirAdministration();return}
+ S.v=v;$("home").hidden=v!="home";$("shop").hidden=v!="shop";$("seller").hidden=v!="seller";$("admin").hidden=true;go();if(window.scrollTo)window.scrollTo(0,0)
+}
 async function logout(){
  if(window.TogoshopSupabase&&TogoshopSupabase.enabled){
   await TogoshopSupabase.signOut();
  }
- S.me=null;save();go();dlg.close();toast("Vous êtes déconnecté");
+ S.me=null;S.isAdmin=false;save();go();dlg.close();toast("Vous êtes déconnecté");
 }
 
 async function initSupabaseCatalog(){
@@ -486,7 +565,7 @@ async function initSupabaseCatalog(){
 
 async function hydrateSupabaseState(mergeLocalCart){
  const profile=await TogoshopSupabase.getProfile();
- if(!profile){S.me=null;return null}
+ if(!profile){S.me=null;S.isAdmin=false;return null}
  S.me={id_client:profile.id_client,nom:profile.nom||"",prenom:profile.prenom||"",email:profile.email||"",telephone:profile.telephone||"",mot_de_passe:""};
 
  const [cart,favorites,seller]=await Promise.all([
@@ -509,6 +588,7 @@ async function hydrateSupabaseState(mergeLocalCart){
   S.own=Object.fromEntries(seller.productIds.map(id=>[id,S.me.id_client]));
   S.parts=seller.partnerships.map(row=>({id_client:S.me.id_client,type:row.type,message:row.message,statut:row.statut}));
  }
+ await rafraichirDroitsAdmin();
  return profile;
 }
 

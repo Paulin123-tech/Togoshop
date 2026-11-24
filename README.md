@@ -78,6 +78,23 @@ Avec Supabase et les migrations appliquées, le plan et son statut sont enregist
 
 Le paiement d'abonnement est une simulation : aucune somme n'est prélevée. N'utilisez que les coordonnées de test affichées dans le formulaire. Sans Supabase, les fonctions vendeur restent simulées localement dans le navigateur.
 
+## Back-office administrateur
+Le back-office est disponible uniquement après application de la migration d'administration et vérification du rôle par Supabase. L'accès aux données et aux opérations est contrôlé par les fonctions SQL, pas seulement par l'affichage du lien.
+
+Après avoir appliqué la migration, ajoutez votre compte Auth vous-même dans Supabase SQL Editor en remplaçant l'adresse :
+```sql
+insert into public.admin_accounts (user_id)
+select id
+from auth.users
+where lower(email) = lower('VOTRE_EMAIL')
+returning user_id;
+```
+La table des administrateurs n'est pas directement accessible depuis le site.
+
+La migration `20261124104600_admin_catalog_customers.sql` ajoute à ce back-office la gestion du catalogue, les imports CSV (500 lignes maximum, aperçu et vérification avant envoi) et la liste CRM. Un produit qui figure dans une commande ne peut pas être supprimé; mettez son stock à 0 pour le retirer des ventes. Les exports clients contiennent des données personnelles et sont réservés à l'administrateur. N'exécutez cette migration qu'après l'avoir relue dans Supabase.
+
+La migration `20261124105350_admin_promotions.sql` ajoute la gestion des codes à montant fixe ou en pourcentage, leur période de validité et leur limite globale d'utilisation. La validation au checkout et l'enregistrement de l'utilisation sont effectués côté base; `place_order` reste inchangée et est appelée par le nouveau parcours transactionnel. Le code historique `TOGO10` est initialisé comme remise de 10 % sans date de fin ni limite d'utilisation et reste protégé contre la modification ou la suppression afin de préserver la compatibilité avec cette fonction.
+
 ## Voitures et maisons
 Ce sont des lignes de la table produit rangées dans les catégories "Voitures neuves", "Voitures d'occasion" et "Maisons à vendre". Le bouton "Réserver" passe par le panier, et la commande reçoit le statut "Réservation à confirmer". Les annonces sont fictives.
 

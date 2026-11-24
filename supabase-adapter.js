@@ -160,12 +160,132 @@ window.TogoshopSupabase = (() => {
 
   async function placeOrder(adresse, ville, modeLivraison, paymentMode, promoCode) {
     if (!client) throw new Error("Supabase local n'est pas configure");
-    const { data, error } = await client.rpc("place_order", {
+    const { data, error } = await client.rpc("place_order_with_promo", {
       p_adresse: adresse,
       p_ville: ville,
       p_mode_livraison: modeLivraison,
       p_paiement: paymentMode,
       p_code: promoCode || null
+    });
+    if (error) throw error;
+    return data;
+  }
+
+  async function previewPromo(code) {
+    if (!client) throw new Error("Supabase local n'est pas configure");
+    const { data, error } = await client.rpc("preview_promo", { p_code: code });
+    if (error) throw error;
+    return data;
+  }
+
+  async function isAdmin() {
+    if (!client) throw new Error("Supabase local n'est pas configure");
+    const { data, error } = await client.rpc("is_admin");
+    if (error) throw error;
+    return data === true;
+  }
+
+  async function adminDashboard(days) {
+    if (!client) throw new Error("Supabase local n'est pas configure");
+    const { data, error } = await client.rpc("admin_dashboard", { p_days: days });
+    if (error) throw error;
+    return data;
+  }
+
+  async function adminListOrders(status, search) {
+    if (!client) throw new Error("Supabase local n'est pas configure");
+    const { data, error } = await client.rpc("admin_list_orders", {
+      p_status: status || null,
+      p_search: search || null
+    });
+    if (error) throw error;
+    return data;
+  }
+
+  async function adminGetOrder(id) {
+    if (!client) throw new Error("Supabase local n'est pas configure");
+    const { data, error } = await client.rpc("admin_get_order", { p_id: id });
+    if (error) throw error;
+    return data;
+  }
+
+  async function adminUpdateOrderStatus(id, status) {
+    if (!client) throw new Error("Supabase local n'est pas configure");
+    const { data, error } = await client.rpc("admin_update_order_status", {
+      p_id: id,
+      p_status: status
+    });
+    if (error) throw error;
+    return data;
+  }
+
+  async function adminUpsertProduct(product) {
+    if (!client) throw new Error("Supabase local n'est pas configure");
+    const { data, error } = await client.rpc("admin_upsert_product", {
+      p_id_produit: product.id,
+      p_nom: product.nom,
+      p_description: product.description,
+      p_prix: product.prix,
+      p_stock: product.stock,
+      p_image: product.image,
+      p_id_categorie: product.categorie
+    });
+    if (error) throw error;
+    return data;
+  }
+
+  async function adminDeleteProduct(id) {
+    if (!client) throw new Error("Supabase local n'est pas configure");
+    const { data, error } = await client.rpc("admin_delete_product", {
+      p_id_produit: id
+    });
+    if (error) throw error;
+    return data;
+  }
+
+  async function adminImportProducts(rows) {
+    if (!client) throw new Error("Supabase local n'est pas configure");
+    const { data, error } = await client.rpc("admin_import_products", {
+      p_rows: rows
+    });
+    if (error) throw error;
+    return data;
+  }
+
+  async function adminListCustomers() {
+    if (!client) throw new Error("Supabase local n'est pas configure");
+    const { data, error } = await client.rpc("admin_list_customers");
+    if (error) throw error;
+    return data;
+  }
+
+  async function adminListPromos() {
+    if (!client) throw new Error("Supabase local n'est pas configure");
+    const { data, error } = await client.rpc("admin_list_promos");
+    if (error) throw error;
+    return data;
+  }
+
+  async function adminUpsertPromo(promo) {
+    if (!client) throw new Error("Supabase local n'est pas configure");
+    const { data, error } = await client.rpc("admin_upsert_promo", {
+      p_id_promotion: promo.id,
+      p_code: promo.code,
+      p_type_remise: promo.type,
+      p_valeur: promo.value,
+      p_date_debut: promo.start,
+      p_date_fin: promo.end,
+      p_limite_utilisation: promo.limit,
+      p_actif: promo.active
+    });
+    if (error) throw error;
+    return data;
+  }
+
+  async function adminDeletePromo(id) {
+    if (!client) throw new Error("Supabase local n'est pas configure");
+    const { data, error } = await client.rpc("admin_delete_promo", {
+      p_id_promotion: id
     });
     if (error) throw error;
     return data;
@@ -326,6 +446,19 @@ window.TogoshopSupabase = (() => {
     setCart,
     setFavorite,
     placeOrder,
+    previewPromo,
+    isAdmin,
+    adminDashboard,
+    adminListOrders,
+    adminGetOrder,
+    adminUpdateOrderStatus,
+    adminUpsertProduct,
+    adminDeleteProduct,
+    adminImportProducts,
+    adminListCustomers,
+    adminListPromos,
+    adminUpsertPromo,
+    adminDeletePromo,
     chooseSellerPlan,
     cancelSellerTrial,
     previewSellerTrial,
