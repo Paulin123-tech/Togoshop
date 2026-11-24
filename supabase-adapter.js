@@ -247,6 +247,17 @@ window.TogoshopSupabase = (() => {
         id_commande,
         date_commande,
         statut,
+        adresse_commande (
+          adresse,
+          ville,
+          mode_livraison,
+          frais_livraison
+        ),
+        paiement_commande (
+          fournisseur,
+          statut,
+          montant
+        ),
         ligne_commande (
           id_ligne,
           id_produit,

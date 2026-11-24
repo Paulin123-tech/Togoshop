@@ -14,11 +14,12 @@ const S={c:0,q:"",tri:"p",pa:0,pb:1e9,nt:0,sk:false,fo:false,b:"",lim:24,sig:"",
  cart:ls.get("cart",{}),sell:ls.get("sell",[]),own:ls.get("own",{}),abos:ls.get("abos",{}),parts:ls.get("parts",[]),fav:ls.get("fav",[]),me:ls.get("me",null),clients:ls.get("clients",[]),cmds:ls.get("cmds",[]),lignes:ls.get("lignes",[])};
 const PAYMENT_DEMO=Object.freeze({card:"4242424242424242",cvv:"123",mobile:"22800000000",code:"123456"});
 const PAYMENT_LABELS={carte:"Carte bancaire",tmoney:"T-Money",flooz:"Flooz",cod:"Paiement à la livraison"};
+const FACTURES=new Map();
 let paymentFlow={mode:null,active:false,verified:false,attempts:0};
 const save=()=>{if(window.TogoshopSupabase&&TogoshopSupabase.enabled)return;ls.set("sell",S.sell);ls.set("own",S.own);ls.set("abos",S.abos);ls.set("parts",S.parts);ls.set("cart",S.cart);ls.set("fav",S.fav);ls.set("me",S.me);ls.set("clients",S.clients);ls.set("cmds",S.cmds);ls.set("lignes",S.lignes);ls.set("stk",Object.fromEntries(P.map(p=>[p.id,p.s])))};
 function toast(m){const t=$("toast");t.textContent=m;t.classList.add("on");clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove("on"),2200)}
 const stars=r=>"★".repeat(Math.round(r))+"☆".repeat(5-Math.round(r));
-const im=p=>`<img src="${p.img}" alt="${p.n}" loading="lazy" data-e="${p.e}" onerror="this.replaceWith(this.dataset.e)">`;
+const im=p=>`<img src="${p.img}" alt="${esc(p.n)}" width="640" height="512" loading="lazy" decoding="async" data-e="${p.e}" onerror="this.replaceWith(this.dataset.e)">`;
 
 function card(p){const f=S.fav.includes(p.id),b=p.o?`<span class="bd">-${Math.round(100-p.p*100/p.o)} %</span>`:"";
  return `<article class="card">${b}<button class="fav ${f?"on":""}" onclick="tf(${p.id})" aria-label="Ajouter aux favoris" aria-pressed="${f}">♥</button>
@@ -79,7 +80,7 @@ function det(id){const p=prod(id),mq=MQ(p),res=RES.includes(p.c),f=S.fav.include
  const dispo=p.s?(p.s<5?"Plus que "+p.s+" en stock":p.s+" en stock"):"Rupture de stock";
  const sp=[["Référence","N° "+p.id],["Catégorie",cn(p.c)],[p.c===8?"Ville":"Marque",mq],...feats(p),["Disponibilité",dispo],["Prix",fmt(p.p)]];
  if(p.o)sp.push(["Ancien prix",fmt(p.o)]);if(S.own[p.id])sp.push(["Vendeur","Vendeur partenaire"]);
- show(`<div class="dv2"><div class="gal" onclick="zoom(${p.id})" onkeydown="if(event.key==='Enter')zoom(${p.id})" role="button" tabindex="0" aria-label="Agrandir l’image"><img src="${p.img}" alt="${p.n}" data-e="${p.e}" onerror="this.replaceWith(this.dataset.e)"><span class="zm">Agrandir</span></div>
+ show(`<div class="dv2"><div class="gal" onclick="zoom(${p.id})" onkeydown="if(event.key==='Enter')zoom(${p.id})" role="button" tabindex="0" aria-label="Agrandir l’image"><img src="${p.img}" alt="${esc(p.n)}" width="640" height="512" loading="lazy" decoding="async" data-e="${p.e}" onerror="this.replaceWith(this.dataset.e)"><span class="zm">Agrandir</span></div>
  <div class="inf2"><span class="cat">${cn(p.c)} · ${mq}</span><h2>${p.n}</h2><span class="rt">${p.r?stars(p.r)+" "+p.r.toFixed(1).replace(".",","):"Nouveau"}</span>
  <p class="pr">${p.o?`<s>${fmt(p.o)}</s>`:""}${fmt(p.p)}</p><p class="sk ${p.s<5?"lo":""}">${dispo}</p>
  <h3>Description</h3><p>${p.d}</p>
@@ -87,7 +88,7 @@ function det(id){const p=prod(id),mq=MQ(p),res=RES.includes(p.c),f=S.fav.include
  <div class="acts"><button class="btn" ${p.s?"":"disabled"} onclick="add(${p.id},+dqv.textContent);dlg.close()">${res?"Réserver":"Ajouter au panier"}</button><button class="ad" onclick="tf(${p.id});det(${p.id})">${f?"♥ Retirer des favoris":"♡ Ajouter aux favoris"}</button></div>
  <h3>Fiche produit</h3><table class="spec">${sp.map(([a,b])=>`<tr><td>${a}</td><td>${b}</td></tr>`).join("")}</table></div></div>
  <h3 style="margin-top:24px">Produits similaires</h3><div class="simg">${sim.map(q=>`<button class="sm" onclick="det(${q.id})">${im(q)}<b>${q.n}</b><span>${fmt(q.p)}</span></button>`).join("")}</div>`,true)}
-function zoom(id){const p=prod(id),o=document.createElement("div");o.className="lb";o.onclick=()=>o.remove();o.innerHTML=`<img src="${p.img}" alt="${p.n}">`;dlg.appendChild(o)}
+function zoom(id){const p=prod(id),o=document.createElement("div");o.className="lb";o.onclick=()=>o.remove();o.innerHTML=`<img src="${p.img}" alt="${esc(p.n)}" width="640" height="512" loading="lazy" decoding="async">`;dlg.appendChild(o)}
 function dq(d){const v=$("dqv");v.textContent=Math.max(1,+v.textContent+d)}
 
 const hash=async s=>[...new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(s)))].map(b=>b.toString(16).padStart(2,"0")).join("");
@@ -112,17 +113,76 @@ async function sub(e,m){e.preventDefault();const f=Object.fromEntries(new FormDa
   const c={id_client:S.clients.length+1,nom:f.nom,prenom:f.prenom,email:em,telephone:f.telephone,mot_de_passe:h};S.clients.push(c);S.me=c}
  else{const c=S.clients.find(c=>c.email==em&&c.mot_de_passe==h);if(!c){$("am").textContent="E-mail ou mot de passe incorrect.";return}S.me=c}
  save();go();dlg.close();toast("Bienvenue "+S.me.prenom);if(S.then)S.then()}
+function relationOne(value){return Array.isArray(value)?value[0]||{}:value||{}}
+function factureDate(value){
+ const date=new Date(typeof value==="string"?value.replace(" ","T"):value);
+ return Number.isNaN(date.getTime())?"Non renseignée":date.toLocaleDateString("fr-FR");
+}
+function factureDepuisCommande(id,order,lines,totals){
+ const invoice={
+  id:String(id),
+  date:order.date_commande||new Date().toISOString(),
+  client:[S.me&&S.me.prenom,S.me&&S.me.nom].filter(Boolean).join(" ")||S.me&&S.me.email||"Client",
+  adresse:order.adresse||"Non renseignée",
+  ville:order.ville||"",
+  mode:PAYMENT_LABELS[order.mode_paiement||order.paymentMode]||order.mode_paiement||order.paymentMode||"Non renseigné",
+  lignes:lines.map(line=>({nom:line.nom,quantite:Number(line.quantite),prix:Number(line.prix),total:Number(line.quantite)*Number(line.prix)})),
+  sousTotal:Number(totals.sousTotal),
+  livraison:Number(totals.livraison||0),
+  remise:Number(totals.remise||0),
+  total:Number(totals.total)
+ };
+ FACTURES.set(invoice.id,invoice);
+ return invoice;
+}
+function factureDepuisSupabase(order){
+ const address=relationOne(order.adresse_commande),payment=relationOne(order.paiement_commande);
+ const lines=(order.ligne_commande||[]).map(line=>({
+  nom:prod(line.id_produit)?.n||"Produit #"+line.id_produit,
+  quantite:Number(line.quantite),
+  prix:Number(line.prix_unitaire)
+ }));
+ const sousTotal=lines.reduce((sum,line)=>sum+line.quantite*line.prix,0);
+ const livraison=Number(address.frais_livraison||0);
+ const total=payment.montant==null?sousTotal+livraison:Number(payment.montant);
+ return factureDepuisCommande(order.id_commande,{
+  date_commande:order.date_commande,
+  adresse:address.adresse,
+  ville:address.ville,
+  mode_paiement:payment.fournisseur
+ },lines,{sousTotal,livraison,remise:Math.max(0,sousTotal+livraison-total),total});
+}
+function factureButton(id){return `<button class="ad" onclick="imprimerFacture('${String(id).replace(/\D/g,"")}')">Imprimer la facture</button>`}
+function imprimerFacture(id){
+ const invoice=FACTURES.get(String(id));
+ if(!invoice){toast("Les données de cette facture sont indisponibles.");return}
+ const rows=invoice.lignes.map(line=>`<tr><td>${esc(line.nom)}</td><td>${line.quantite}</td><td>${fmt(line.prix)}</td><td>${fmt(line.total)}</td></tr>`).join("");
+ const page=`<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Facture Togoshop n° ${esc(invoice.id)}</title><style>
+ @page{size:A4;margin:18mm}*{box-sizing:border-box}body{font:14px Arial,sans-serif;color:#20242a;margin:0}.invoice{max-width:760px;margin:24px auto;padding:32px;border:1px solid #dfe3e8;border-radius:12px}.top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #0f7f74;padding-bottom:18px}.brand{font-size:26px;font-weight:800;color:#0f7f74}.muted{color:#5d6670}.warning{margin:22px 0;padding:12px;border:1px solid #e6bb55;background:#fff8df;text-align:center;font-weight:700}.columns{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin:24px 0}.columns h2{font-size:14px;margin:0 0 8px}table{width:100%;border-collapse:collapse;margin:22px 0}th,td{text-align:left;padding:10px 8px;border-bottom:1px solid #dfe3e8}th{background:#f4f6f7}.totals{width:min(320px,100%);margin-left:auto}.totals p{display:flex;justify-content:space-between;margin:8px 0}.grand{border-top:2px solid #20242a;padding-top:12px;font-size:18px;font-weight:800}.print{border:0;border-radius:8px;padding:12px 18px;background:#0f7f74;color:#fff;font-weight:700;cursor:pointer}.actions{text-align:right;margin-bottom:16px}@media print{body{font-size:12px}.invoice{max-width:none;margin:0;padding:0;border:0;border-radius:0}.actions{display:none}thead{display:table-header-group}tr{break-inside:avoid}}
+ </style></head><body><main class="invoice"><div class="actions"><button class="print" onclick="window.print()">Imprimer la facture</button></div><header class="top"><div><div class="brand">Togoshop</div><div class="muted">Facture de commande</div></div><div><strong>N° ${esc(invoice.id)}</strong><br><span class="muted">${esc(factureDate(invoice.date))}</span></div></header><div class="warning">Facture de démonstration, sans valeur légale</div><section class="columns"><div><h2>Client</h2><div>${esc(invoice.client)}</div></div><div><h2>Adresse de livraison</h2><div>${esc(invoice.adresse)}${invoice.ville?", "+esc(invoice.ville):""}</div></div></section><table><thead><tr><th>Article</th><th>Qté</th><th>Prix unitaire</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table><section class="totals"><p><span>Sous-total</span><strong>${fmt(invoice.sousTotal)}</strong></p>${invoice.remise?`<p><span>Remise</span><strong>-${fmt(invoice.remise)}</strong></p>`:""}<p><span>Livraison</span><strong>${invoice.livraison?fmt(invoice.livraison):"Gratuite"}</strong></p><p class="grand"><span>Total</span><strong>${fmt(invoice.total)}</strong></p></section><p><strong>Mode de paiement :</strong> ${esc(invoice.mode)} (simulation)</p></main></body></html>`;
+ const printWindow=window.open("","_blank");
+ if(!printWindow){toast("Autorisez les fenêtres contextuelles pour imprimer la facture.");return}
+ printWindow.opener=null;
+ printWindow.document.open();printWindow.document.write(page);printWindow.document.close();
+}
 async function compte(){if(!S.me)return auth("in");
  if(window.TogoshopSupabase&&TogoshopSupabase.enabled){
   try{
    const commandes=await TogoshopSupabase.getOrders();
-   show(`<h2>Bonjour ${esc(S.me.prenom)}</h2><p>${esc(S.me.email)}, ${esc(S.me.telephone)}</p><h3>Mes commandes</h3>`+(commandes.length?commandes.map(c=>`<div class="opt" style="display:block"><div class="ro"><b>Commande n° ${c.id_commande}</b><span>${fmt((c.ligne_commande||[]).reduce((t,l)=>t+l.quantite*l.prix_unitaire,0))}</span></div><div class="ro"><span>${new Date(c.date_commande).toLocaleDateString("fr-FR")}</span><span class="sk">${esc(c.statut)}</span></div><small>${(c.ligne_commande||[]).map(l=>l.quantite+" × "+esc(prod(l.id_produit)?.n||"Produit")).join(", ")}</small></div>`).join(""):`<p class="em" style="padding:16px 0">Aucune commande pour l’instant.</p>`)+`<button class="ad" onclick="logout()">Se déconnecter</button>`);
+   show(`<h2>Bonjour ${esc(S.me.prenom)}</h2><p>${esc(S.me.email)}, ${esc(S.me.telephone)}</p><h3>Mes commandes</h3>`+(commandes.length?commandes.map(c=>{
+    const invoice=factureDepuisSupabase(c),lines=c.ligne_commande||[];
+    return `<div class="opt" style="display:block"><div class="ro"><b>Commande n° ${esc(c.id_commande)}</b><span>${fmt(invoice.total)}</span></div><div class="ro"><span>${esc(factureDate(c.date_commande))}</span><span class="sk">${esc(c.statut)}</span></div><small>${lines.map(l=>`${l.quantite} × ${esc(prod(l.id_produit)?.n||"Produit")}`).join(", ")}</small><div style="margin-top:10px">${factureButton(c.id_commande)}</div></div>`
+   }).join(""):`<p class="em" style="padding:16px 0">Aucune commande pour l’instant.</p>`)+`<button class="ad" onclick="logout()">Se déconnecter</button>`);
   }catch(error){toast(error.message||"Impossible de charger les commandes")}
   return;
  }
  const mine=S.cmds.filter(c=>c.id_client==S.me.id_client).reverse();
- show(`<h2>Bonjour ${esc(S.me.prenom)}</h2><p>${esc(S.me.email)}, ${esc(S.me.telephone)}</p><h3>Mes commandes</h3>`+(mine.length?mine.map(c=>`<div class="opt" style="display:block"><div class="ro"><b>Commande n° ${c.id_commande}</b><span>${fmt(S.lignes.filter(l=>l.id_commande==c.id_commande).reduce((t,l)=>t+l.quantite*l.prix_unitaire,0))}</span></div><div class="ro"><span>${new Date(c.date_commande.replace(" ","T")).toLocaleDateString("fr-FR")}</span><span class="sk">${c.statut}</span></div>
- <small>${S.lignes.filter(l=>l.id_commande==c.id_commande).map(l=>l.quantite+" × "+prod(l.id_produit).n).join(", ")}</small></div>`).join(""):`<p class="em" style="padding:16px 0">Aucune commande pour l’instant.</p>`)+`<button class="ad" onclick="logout()">Se déconnecter</button>`)}
+ show(`<h2>Bonjour ${esc(S.me.prenom)}</h2><p>${esc(S.me.email)}, ${esc(S.me.telephone)}</p><h3>Mes commandes</h3>`+(mine.length?mine.map(c=>{
+  const lines=S.lignes.filter(l=>l.id_commande==c.id_commande).map(l=>({nom:prod(l.id_produit)?.n||"Produit #"+l.id_produit,quantite:l.quantite,prix:l.prix_unitaire}));
+  const sousTotal=lines.reduce((sum,line)=>sum+line.quantite*line.prix,0);
+  const invoice=factureDepuisCommande(c.id_commande,c,lines,{sousTotal,livraison:Number(c.frais_livraison||0),remise:Number(c.remise||0),total:Number(c.total==null?sousTotal+Number(c.frais_livraison||0)-Number(c.remise||0):c.total)});
+  return `<div class="opt" style="display:block"><div class="ro"><b>Commande n° ${esc(c.id_commande)}</b><span>${fmt(invoice.total)}</span></div><div class="ro"><span>${esc(factureDate(c.date_commande))}</span><span class="sk">${esc(c.statut)}</span></div><small>${lines.map(line=>`${line.quantite} × ${esc(line.nom)}`).join(", ")}</small><div style="margin-top:10px">${factureButton(c.id_commande)}</div></div>`
+ }).join(""):`<p class="em" style="padding:16px 0">Aucune commande pour l’instant.</p>`)+`<button class="ad" onclick="logout()">Se déconnecter</button>`)}
 
 function calc(){let st=0;for(const id in S.cart)st+=prod(id).p*S.cart[id];const rem=S.promo?Math.round(st*.1):0;
  let fr=!st?0:S.liv=="ret"?0:S.liv=="exp"?3000:(st-rem>=100000?0:1500);return{st,rem,fr,tot:st-rem+fr}}
@@ -230,16 +290,18 @@ async function saveCheckoutOrder(order,paymentStatus){
    for(const id in S.cart)await TogoshopSupabase.setCart(+id,S.cart[id]);
    const mode={std:"standard",exp:"express",ret:"retrait"}[order.livraison]||"standard";
    const id=await TogoshopSupabase.placeOrder(order.adresse,order.ville,mode,order.paymentMode,order.codePromo);
+   const invoice=factureDepuisCommande(id,{...order,date_commande:new Date().toISOString()},Object.keys(S.cart).map(pid=>({nom:prod(pid)?.n||"Produit",quantite:S.cart[pid],prix:prod(pid)?.p||0})),{sousTotal:c.st,livraison:c.fr,remise:c.rem,total:c.tot});
    S.cart={};S.promo=false;save();await initSupabaseCatalog();cart();
-   show(`<h2>Merci ${esc(S.me.prenom)}, commande confirmée</h2><p>Commande n° <b>${id}</b>, total ${fmt(c.tot)}. Livraison à ${esc(order.adresse+", "+order.ville)}.</p><p><small>Paiement : ${esc(paymentLabel)} — ${esc(paymentStatus)}. Seuls le mode et le statut sont enregistrés.</small></p><button class="btn" style="background:var(--ind);color:var(--indk)" onclick="dlg.close()">Continuer mes achats</button>`)
+   show(`<h2>Merci ${esc(S.me.prenom)}, commande confirmée</h2><p>Commande n° <b>${esc(id)}</b>, total ${fmt(c.tot)}. Livraison à ${esc(order.adresse+", "+order.ville)}.</p><p><small>Paiement : ${esc(paymentLabel)} — ${esc(paymentStatus)}. Seuls le mode et le statut sont enregistrés.</small></p>${factureButton(id)} <button class="btn" style="background:var(--ind);color:var(--indk)" onclick="dlg.close()">Continuer mes achats</button>`)
   }catch(error){toast(error.message||"Commande Supabase refusée")}
   return
  }
  const id=1001+S.cmds.length;
- const cmd={id_commande:id,date_commande:new Date().toISOString().slice(0,19).replace("T"," "),statut:Object.keys(S.cart).some(i=>RES.includes(prod(i).c))?"Réservation à confirmer":"En préparation",id_client:S.me.id_client,mode_paiement:order.paymentMode,statut_paiement:paymentStatus};
+ const cmd={id_commande:id,date_commande:new Date().toISOString().slice(0,19).replace("T"," "),statut:Object.keys(S.cart).some(i=>RES.includes(prod(i).c))?"Réservation à confirmer":"En préparation",id_client:S.me.id_client,mode_paiement:order.paymentMode,statut_paiement:paymentStatus,adresse:order.adresse,ville:order.ville,mode_livraison:order.livraison,frais_livraison:c.fr,remise:c.rem,sous_total:c.st,total:c.tot};
  const lg=Object.keys(S.cart).map((pid,i)=>({id_ligne:S.lignes.length+i+1,id_commande:id,id_produit:+pid,quantite:S.cart[pid],prix_unitaire:prod(pid).p}));
+ factureDepuisCommande(id,cmd,lg.map(line=>({nom:prod(line.id_produit)?.n||"Produit",quantite:line.quantite,prix:line.prix_unitaire})),{sousTotal:c.st,livraison:c.fr,remise:c.rem,total:c.tot});
  lg.forEach(l=>prod(l.id_produit).s-=l.quantite);S.cmds.push(cmd);S.lignes.push(...lg);S.cart={};S.promo=false;save();go();
- show(`<h2>Merci ${esc(S.me.prenom)}, commande confirmée</h2><p>Commande n° <b>${id}</b>, total ${fmt(c.tot)}. Livraison à ${esc(order.adresse+", "+order.ville)}.</p><p>Paiement : ${esc(paymentLabel)} — ${esc(paymentStatus)}.</p><h3>Confirmation (JSON)</h3><pre>${esc(JSON.stringify({commande:cmd,lignes:lg},null,2))}</pre><p><small>Aucune donnée de carte, de téléphone ou de validation n’est conservée.</small></p><button class="btn" style="background:var(--ind);color:var(--indk)" onclick="dlg.close()">Continuer mes achats</button>`)
+ show(`<h2>Merci ${esc(S.me.prenom)}, commande confirmée</h2><p>Commande n° <b>${id}</b>, total ${fmt(c.tot)}. Livraison à ${esc(order.adresse+", "+order.ville)}.</p><p>Paiement : ${esc(paymentLabel)} — ${esc(paymentStatus)}.</p><p><small>Aucune donnée de carte, de téléphone ou de validation n’est conservée.</small></p>${factureButton(id)} <button class="btn" style="background:var(--ind);color:var(--indk)" onclick="dlg.close()">Continuer mes achats</button>`)
 }
 async function valider(e){
  e.preventDefault();

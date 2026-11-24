@@ -35,7 +35,7 @@ Le schéma, les règles de sécurité RLS et les données de démonstration sont
 5. Aucun réglage de variables d’environnement ni redéploiement de build n’est nécessaire pour cette configuration statique.
 6. Dans Supabase **Authentication → URL Configuration**, définissez l’URL du site sur le domaine Vercel et ajoutez aussi `http://127.0.0.1:5500/**` aux URL de redirection pour les tests locaux.
 
-Le catalogue est lu depuis Supabase dès que le projet est joignable. Les comptes, commandes, paniers et favoris nécessitent une session authentifiée.
+Le catalogue et les catégories sont lus depuis Supabase dès que le projet est joignable. L'inscription et la connexion passent par Supabase Auth; les commandes sont créées par la fonction `place_order`. Celle-ci enregistre l'adresse dans `adresse_commande` et les lignes de paiement dans `paiement_commande`. Le parcours de paiement est une simulation : aucun paiement réel ni numéro de carte n'est traité ou conservé. Sans configuration Supabase, le site garde son mode de démonstration local dans le navigateur.
 
 ## Lancer le site
 Ouvrir ce dossier dans VS Code, puis clic droit sur `index.html` > "Open with Live Server" (ou double-clic sur le fichier).
@@ -48,22 +48,19 @@ Ouvrir ce dossier dans VS Code, puis clic droit sur `index.html` > "Open with Li
 - `images/` : à créer, voir la liste plus bas
 - `assets/` : image de fond de l'accueil (iPhone 18 Pro), à garder avec les autres fichiers
 
-## Schéma respecté
-- client : id_client, nom, prenom, email, telephone, mot_de_passe
+## Schéma
+- client : id_client, user_id, nom, prenom, email, telephone
 - categorie : id_categorie, nom_categorie
 - produit : id_produit, nom_produit, description, prix, stock, image, id_categorie
 - commande : id_commande, date_commande, statut, id_client
 - ligne_commande : id_ligne, id_commande, id_produit, quantite, prix_unitaire
+- adresse_commande : id_commande, adresse, ville, mode_livraison, frais_livraison
+- paiement_commande : id_commande, fournisseur, statut, montant, cree_le
 
-## Ce qui n'est pas dans le schéma
-- L'adresse, le mode de livraison et le paiement sont demandés dans le formulaire mais ne sont pas enregistrés.
-- Le total d'une commande n'est pas une colonne : il se calcule avec la somme de quantite x prix_unitaire des lignes.
+Le total est calculé par `place_order` à partir des lignes, de la remise et des frais de livraison, puis enregistré dans `paiement_commande.montant`.
 - Les notes, anciens prix (ventes flash) et emojis viennent de DECOR dans `data.js` : décor du front uniquement.
 
-## Brancher le back-end
-1. Dans `data.js`, remplacer CATEGORIE et PRODUIT par le résultat de fetch (mêmes colonnes en JSON).
-2. Dans `app.js`, la fonction `valider()` construit l'objet { commande, lignes } à envoyer en POST.
-3. L'inscription, la connexion et le stock sont aujourd'hui gérés dans le navigateur (localStorage) : à déplacer côté serveur, avec hachage du mot de passe côté serveur.
+Les données de commande et d'adresse sont accessibles au client authentifié par les politiques RLS. Le paiement simulé conserve uniquement le mode, le statut et le montant; les données de carte, le CVV et le code de validation ne sont jamais enregistrés.
 
 ## Marques et modèles
 - La marque n'est PAS une colonne du schéma : elle fait partie de nom_produit (ex. "Apple iPhone 15 128 Go"). Le front la retrouve grâce à la liste MARQUES de `data.js` (pour les maisons, la "marque" est la ville).
