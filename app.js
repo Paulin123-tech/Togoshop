@@ -12,6 +12,9 @@ const stk=ls.get("stk",{});P.forEach(p=>{if(stk[p.id]!=null)p.s=stk[p.id]});
 const prod=id=>P.find(p=>p.id==id),cn=id=>CATS.find(c=>c[0]==id)[1];
 const S={c:0,q:"",tri:"p",pa:0,pb:1e9,nt:0,sk:false,fo:false,b:"",lim:24,sig:"",v:"home",liv:"std",promo:false,
  cart:ls.get("cart",{}),sell:ls.get("sell",[]),own:ls.get("own",{}),abos:ls.get("abos",{}),parts:ls.get("parts",[]),fav:ls.get("fav",[]),me:ls.get("me",null),clients:ls.get("clients",[]),cmds:ls.get("cmds",[]),lignes:ls.get("lignes",[])};
+const PAYMENT_DEMO=Object.freeze({card:"4242424242424242",cvv:"123",mobile:"22800000000",code:"123456"});
+const PAYMENT_LABELS={carte:"Carte bancaire",tmoney:"T-Money",flooz:"Flooz",cod:"Paiement à la livraison"};
+let paymentFlow={mode:null,active:false,verified:false,attempts:0};
 const save=()=>{if(window.TogoshopSupabase&&TogoshopSupabase.enabled)return;ls.set("sell",S.sell);ls.set("own",S.own);ls.set("abos",S.abos);ls.set("parts",S.parts);ls.set("cart",S.cart);ls.set("fav",S.fav);ls.set("me",S.me);ls.set("clients",S.clients);ls.set("cmds",S.cmds);ls.set("lignes",S.lignes);ls.set("stk",Object.fromEntries(P.map(p=>[p.id,p.s])))};
 function toast(m){const t=$("toast");t.textContent=m;t.classList.add("on");clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove("on"),2200)}
 const stars=r=>"★".repeat(Math.round(r))+"☆".repeat(5-Math.round(r));
@@ -124,29 +127,129 @@ async function compte(){if(!S.me)return auth("in");
 function calc(){let st=0;for(const id in S.cart)st+=prod(id).p*S.cart[id];const rem=S.promo?Math.round(st*.1):0;
  let fr=!st?0:S.liv=="ret"?0:S.liv=="exp"?3000:(st-rem>=100000?0:1500);return{st,rem,fr,tot:st-rem+fr}}
 function sum(){const c=calc();$("sum").innerHTML=`<div class="ro"><span>Sous-total</span><span>${fmt(c.st)}</span></div>${c.rem?`<div class="ro"><span>Remise TOGO10</span><span>-${fmt(c.rem)}</span></div>`:""}<div class="ro"><span>Livraison</span><span>${c.fr?fmt(c.fr):"Offerte"}</span></div><div class="ro tt" style="margin-top:6px"><span>Total</span><span>${fmt(c.tot)}</span></div>`}
-function checkout(){if(!S.me)return auth("in",checkout);
- const L=[["std","Standard, 2 à 4 jours","1 500 FCFA"],["exp","Express, 24 heures","3 000 FCFA"],["ret","Retrait en boutique à Lomé","Gratuit"]],M=[["mixx","Mixx by Yas"],["flooz","Flooz (Moov Africa)"],["carte","Carte bancaire"],["cod","Paiement à la livraison"]];
- show(`<h2>Finaliser la commande</h2><form id="co" onsubmit="valider(event)"><h3>Adresse de livraison</h3><div class="gp"><input class="f" name="adresse" placeholder="Quartier et rue" required><select name="ville" aria-label="Ville">${["Lomé","Kpalimé","Atakpamé","Sokodé","Kara","Aného"].map(v=>`<option>${v}</option>`).join("")}</select></div>
+function clearPaymentInputs(){document.querySelectorAll("[data-payment-sensitive]").forEach(input=>{input.value=""})}
+function setPaymentMessage(message){const node=$("payment-error");if(node)node.textContent=message}
+function demoPaymentBanner(){return `<div class="demo-banner" role="note"><strong>Mode démonstration.</strong> Aucun paiement réel, n’entrez pas vos vraies coordonnées.</div>`}
+function formatDigits(input,max){input.value=input.value.replace(/\D/g,"").slice(0,max)}
+function formatCardNumber(input){input.value=input.value.replace(/\D/g,"").slice(0,16).replace(/(\d{4})(?=\d)/g,"$1 ")}
+function formatCardExpiry(input){const digits=input.value.replace(/\D/g,"").slice(0,4);input.value=digits.length>2?digits.slice(0,2)+"/"+digits.slice(2):digits}
+function paymentFieldsHtml(mode){
+ if(mode==="carte")return `<div class="payment-grid">
+  <label>Numéro de carte<input class="f" id="card-number" type="text" inputmode="numeric" maxlength="19" autocomplete="off" placeholder="4242 4242 4242 4242" data-payment-sensitive oninput="formatCardNumber(this)"></label>
+  <label>Expiration (MM/AA)<input class="f" id="card-expiry" type="text" inputmode="numeric" maxlength="5" autocomplete="off" placeholder="MM/AA" data-payment-sensitive oninput="formatCardExpiry(this)"></label>
+  <label>CVV de test<input class="f" id="card-cvv" type="password" inputmode="numeric" maxlength="3" autocomplete="off" placeholder="123" data-payment-sensitive oninput="formatDigits(this,3)"></label>
+  <label>Nom du titulaire<input class="f" id="card-holder" type="text" maxlength="60" autocomplete="off" placeholder="TEST USER" data-payment-sensitive></label>
+ </div><small>Carte de test uniquement : 4242 4242 4242 4242. CVV de test : 123.</small><p class="msg" id="payment-error" role="status"></p>`;
+ if(mode==="tmoney"||mode==="flooz")return `<label>Numéro ${mode==="tmoney"?"T-Money":"Flooz"} de test<input class="f" id="mobile-number" type="tel" inputmode="tel" maxlength="18" autocomplete="off" placeholder="+228 00 00 00 00" data-payment-sensitive></label>
+  <small>Numéro de test accepté uniquement : +228 00 00 00 00.</small><p class="msg" id="payment-error" role="status"></p>`;
+ return `<p class="demo-note">Aucune saisie de paiement n’est nécessaire pour le paiement à la livraison.</p><p class="msg" id="payment-error" role="status"></p>`;
+}
+function renderPaymentFields(mode){$("payment-fields").innerHTML=paymentFieldsHtml(mode)}
+function renderPaymentChallenge(mode){$("payment-fields").innerHTML=`<div class="demo-note">Code de validation simulé : <strong>${PAYMENT_DEMO.code}</strong>. Aucun SMS n’est envoyé.</div>
+ <label>Code à 6 chiffres<input class="f" id="payment-code" type="password" inputmode="numeric" maxlength="6" autocomplete="off" data-payment-sensitive oninput="formatDigits(this,6)"></label>
+ <button class="ad" id="resend-demo-code" type="button" onclick="resendDemoCode()">Renvoyer le code</button>
+ <button class="ad" type="button" onclick="cancelPaymentChallenge()">Annuler</button><p class="msg" id="payment-error" role="status"></p>`;
+ $("checkout-submit").textContent="Valider le code"}
+function paymentModeChanged(mode){
+ clearPaymentInputs();paymentFlow={mode,active:false,verified:false,attempts:paymentFlow.attempts};
+ renderPaymentFields(mode);$("checkout-submit").textContent="Confirmer la commande";$("checkout-submit").disabled=false
+}
+function resendDemoCode(){
+ if(paymentFlow.attempts>=3){setPaymentMessage("La limite de 3 essais est atteinte. Annulez la validation; aucun paiement ni commande n’a été créé.");return}
+ setPaymentMessage("Code de démonstration renvoyé. Les essais déjà utilisés ne sont pas réinitialisés.")
+}
+function cancelPaymentChallenge(){
+ clearPaymentInputs();paymentFlow.active=false;paymentFlow.verified=false;
+ renderPaymentFields(paymentFlow.mode);$("checkout-submit").textContent="Confirmer la commande";$("checkout-submit").disabled=false
+}
+function luhnValid(number){
+ let total=0,doubleDigit=false;
+ for(let i=number.length-1;i>=0;i--){let digit=+number[i];if(doubleDigit){digit*=2;if(digit>9)digit-=9}total+=digit;doubleDigit=!doubleDigit}
+ return total%10===0
+}
+function validateCardPayment(){
+ const number=$("card-number").value.replace(/\D/g,"");
+ if(!/^\d{16}$/.test(number))return "Saisissez un numéro de carte de 16 chiffres.";
+ if(!luhnValid(number))return "Numéro de carte invalide (contrôle Luhn).";
+ if(number!==PAYMENT_DEMO.card)return "Démo uniquement : seule la carte 4242 4242 4242 4242 est acceptée.";
+ const expiry=$("card-expiry").value.match(/^(0[1-9]|1[0-2])\/(\d{2})$/);
+ if(!expiry)return "Expiration invalide. Utilisez le format MM/AA.";
+ const expiryEnd=new Date(2000+Number(expiry[2]),Number(expiry[1]),0,23,59,59,999);
+ if(expiryEnd<Date.now())return "La carte de test est expirée.";
+ if($("card-cvv").value!==PAYMENT_DEMO.cvv)return "CVV de démonstration attendu : 123.";
+ if(!$("card-holder").value.trim())return "Saisissez un nom de titulaire de test.";
+ return ""
+}
+function validateMobilePayment(){
+ const number=$("mobile-number").value.replace(/\D/g,"");
+ if(number!==PAYMENT_DEMO.mobile)return "Démo uniquement : utilisez le numéro de test +228 00 00 00 00.";
+ return ""
+}
+async function processDemoPayment(mode,onValidated,allowCashDelivery){
+ if(mode==="cod"){
+  if(!allowCashDelivery){setPaymentMessage("Choisissez une carte ou un paiement mobile pour l’abonnement.");return}
+  clearPaymentInputs();await onValidated(mode,"à la livraison");return
+ }
+ if(!["carte","tmoney","flooz"].includes(mode)){setPaymentMessage("Mode de paiement invalide.");return}
+ if(paymentFlow.mode!==mode)paymentModeChanged(mode);
+ if(paymentFlow.verified){await onValidated(mode,"payé (simulé)");return}
+ if(paymentFlow.active){
+  const input=$("payment-code"),code=input?input.value:"";if(input)input.value="";
+  paymentFlow.attempts++;
+  if(code!==PAYMENT_DEMO.code){
+   const remaining=Math.max(0,3-paymentFlow.attempts);
+   setPaymentMessage(remaining?`Code incorrect. ${remaining} essai(s) restant(s).`:"3 essais épuisés. Annulez la validation; aucune commande n’a été créée.");
+   if(!remaining){if(input)input.disabled=true;const resend=$("resend-demo-code");if(resend)resend.disabled=true;$("checkout-submit").disabled=true}
+   return
+  }
+  paymentFlow.active=false;paymentFlow.verified=true;clearPaymentInputs();$("checkout-submit").textContent="Réessayer";
+  await onValidated(mode,"payé (simulé)");return
+ }
+ if(paymentFlow.attempts>=3){setPaymentMessage("La limite de 3 essais est atteinte. Aucune opération n’a été créée.");return}
+ const error=mode==="carte"?validateCardPayment():validateMobilePayment();
+ if(error){setPaymentMessage(error);return}
+ clearPaymentInputs();paymentFlow.mode=mode;paymentFlow.active=true;paymentFlow.verified=false;renderPaymentChallenge(mode)
+}
+function checkout(){
+ if(!S.me)return auth("in",checkout);
+ const L=[["std","Standard, 2 à 4 jours","1 500 FCFA"],["exp","Express, 24 heures","3 000 FCFA"],["ret","Retrait en boutique à Lomé","Gratuit"]];
+ const M=[["tmoney","T-Money"],["flooz","Flooz"],["carte","Carte bancaire"],["cod","Paiement à la livraison"]];
+ S.liv="std";paymentFlow={mode:"tmoney",active:false,verified:false,attempts:0};
+ show(`<h2>Finaliser la commande</h2>${demoPaymentBanner()}
+ <form id="co" autocomplete="off" onsubmit="valider(event)"><h3>Adresse de livraison</h3><div class="gp"><input class="f" name="adresse" placeholder="Quartier et rue" required><select name="ville" aria-label="Ville">${["Lomé","Kpalimé","Atakpamé","Sokodé","Kara","Aného"].map(v=>`<option>${v}</option>`).join("")}</select></div>
  <h3>Mode de livraison</h3>${L.map(([v,n,p],i)=>`<label class="opt"><input type="radio" name="liv" value="${v}" ${i?"":"checked"} onchange="S.liv=this.value;sum()">${n}<b>${p}</b></label>`).join("")}
- <h3>Paiement</h3>${M.map(([v,n],i)=>`<label class="opt"><input type="radio" name="paiement" value="${n}" ${i?"":"checked"}>${n}</label>`).join("")}<small>Paiement simulé pour la démonstration.</small>
+ <h3>Paiement</h3>${M.map(([v,n],i)=>`<label class="opt"><input type="radio" name="paiement" value="${v}" ${i?"":"checked"} onchange="paymentModeChanged(this.value)">${n}</label>`).join("")}
+ <div id="payment-fields">${paymentFieldsHtml("tmoney")}</div>
  <h3>Code promo</h3><div class="gp"><input class="f" id="pc" placeholder="TOGO10"><button type="button" class="ad" onclick="S.promo=pc.value.trim().toUpperCase()=='TOGO10';toast(S.promo?'Code appliqué':'Code invalide');sum()">Appliquer</button></div>
- <h3>Récapitulatif</h3><div id="sum"></div><button class="pay" style="margin-top:14px">Confirmer la commande</button></form>`);S.liv="std";sum()}
-async function valider(e){e.preventDefault();const f=Object.fromEntries(new FormData(e.target)),c=calc();
+ <h3>Récapitulatif</h3><div id="sum"></div><button class="pay" id="checkout-submit" style="margin-top:14px">Confirmer la commande</button></form>`);sum()
+}
+async function saveCheckoutOrder(order,paymentStatus){
+ const c=calc(),paymentLabel=PAYMENT_LABELS[order.paymentMode]||order.paymentMode;
  if(window.TogoshopSupabase&&TogoshopSupabase.enabled&&S.me){
   try{
    for(const id in S.cart)await TogoshopSupabase.setCart(+id,S.cart[id]);
-   const mode={std:"standard",exp:"express",ret:"retrait"}[f.liv]||"standard";
-   const id=await TogoshopSupabase.placeOrder(f.adresse,f.ville,mode,f.paiement,S.promo?"TOGO10":"");
+   const mode={std:"standard",exp:"express",ret:"retrait"}[order.livraison]||"standard";
+   const id=await TogoshopSupabase.placeOrder(order.adresse,order.ville,mode,order.paymentMode,order.codePromo);
    S.cart={};S.promo=false;save();await initSupabaseCatalog();cart();
-   show(`<h2>Merci ${esc(S.me.prenom)}, commande confirmée</h2><p>Commande n° <b>${id}</b>, total ${fmt(c.tot)}. Livraison à ${esc(f.adresse+", "+f.ville)}.</p><p><small>Adresse, livraison et paiement ont été enregistrés dans les tables complémentaires locales.</small></p><button class="btn" style="background:var(--ind);color:var(--indk)" onclick="dlg.close()">Continuer mes achats</button>`);
+   show(`<h2>Merci ${esc(S.me.prenom)}, commande confirmée</h2><p>Commande n° <b>${id}</b>, total ${fmt(c.tot)}. Livraison à ${esc(order.adresse+", "+order.ville)}.</p><p><small>Paiement : ${esc(paymentLabel)} — ${esc(paymentStatus)}. Seuls le mode et le statut sont enregistrés.</small></p><button class="btn" style="background:var(--ind);color:var(--indk)" onclick="dlg.close()">Continuer mes achats</button>`)
   }catch(error){toast(error.message||"Commande Supabase refusée")}
-  return;
+  return
  }
  const id=1001+S.cmds.length;
- const cmd={id_commande:id,date_commande:new Date().toISOString().slice(0,19).replace("T"," "),statut:Object.keys(S.cart).some(i=>RES.includes(prod(i).c))?"Réservation à confirmer":"En préparation",id_client:S.me.id_client};
+ const cmd={id_commande:id,date_commande:new Date().toISOString().slice(0,19).replace("T"," "),statut:Object.keys(S.cart).some(i=>RES.includes(prod(i).c))?"Réservation à confirmer":"En préparation",id_client:S.me.id_client,mode_paiement:order.paymentMode,statut_paiement:paymentStatus};
  const lg=Object.keys(S.cart).map((pid,i)=>({id_ligne:S.lignes.length+i+1,id_commande:id,id_produit:+pid,quantite:S.cart[pid],prix_unitaire:prod(pid).p}));
  lg.forEach(l=>prod(l.id_produit).s-=l.quantite);S.cmds.push(cmd);S.lignes.push(...lg);S.cart={};S.promo=false;save();go();
- show(`<h2>Merci ${esc(S.me.prenom)}, commande confirmée</h2><p>Commande n° <b>${id}</b>, total ${fmt(c.tot)}. Livraison à ${esc(f.adresse+", "+f.ville)}.</p><h3>Données prêtes pour le back-end (JSON)</h3><pre>${esc(JSON.stringify({commande:cmd,lignes:lg},null,2))}</pre><p><small>L’adresse, le mode de livraison et le paiement n’existent pas dans le schéma : ils ne sont pas enregistrés.</small></p><button class="btn" style="background:var(--ind);color:var(--indk)" onclick="dlg.close()">Continuer mes achats</button>`)}
+ show(`<h2>Merci ${esc(S.me.prenom)}, commande confirmée</h2><p>Commande n° <b>${id}</b>, total ${fmt(c.tot)}. Livraison à ${esc(order.adresse+", "+order.ville)}.</p><p>Paiement : ${esc(paymentLabel)} — ${esc(paymentStatus)}.</p><h3>Confirmation (JSON)</h3><pre>${esc(JSON.stringify({commande:cmd,lignes:lg},null,2))}</pre><p><small>Aucune donnée de carte, de téléphone ou de validation n’est conservée.</small></p><button class="btn" style="background:var(--ind);color:var(--indk)" onclick="dlg.close()">Continuer mes achats</button>`)
+}
+async function valider(e){
+ e.preventDefault();
+ const form=e.currentTarget,mode=form.querySelector('input[name="paiement"]:checked').value;
+ const order={adresse:form.elements.namedItem("adresse").value.trim(),ville:form.elements.namedItem("ville").value,livraison:form.elements.namedItem("liv").value,paymentMode:mode,codePromo:S.promo?"TOGO10":""};
+ await processDemoPayment(mode,async(paymentMode,paymentStatus)=>{
+  order.paymentMode=paymentMode;await saveCheckoutOrder(order,paymentStatus)
+ },true)
+}
+$("dlg").addEventListener("close",()=>{clearPaymentInputs();paymentFlow={mode:null,active:false,verified:false,attempts:0}});
 
 function dbv(t="client"){const T={client:S.clients.map(c=>({...c,mot_de_passe:c.mot_de_passe.slice(0,10)+"…"})),categorie:CATS.map(([a,b])=>({id_categorie:a,nom_categorie:b})),
  produit:P.map(p=>({id_produit:p.id,nom_produit:p.n,description:p.d.slice(0,26)+"…",prix:p.p.toFixed(2),stock:p.s,image:p.img,id_categorie:p.c})),commande:S.cmds,ligne_commande:S.lignes},r=T[t];
@@ -154,20 +257,92 @@ function dbv(t="client"){const T={client:S.clients.map(c=>({...c,mot_de_passe:c.
  <div class="tw">${r.length?`<table><tr>${Object.keys(r[0]).map(k=>`<th>${k}</th>`).join("")}</tr>${r.slice(-8).map(o=>`<tr>${Object.values(o).map(v=>`<td>${esc(v)}</td>`).join("")}</tr>`).join("")}</table>`:`<p class="em">Aucune ligne pour l’instant. Créez un compte ou passez une commande.</p>`}</div>`)}
 
 function tick(){const n=new Date(),e=new Date(n);e.setHours(23,59,59,999);const s=Math.floor((e-n)/1e3);$("cd").textContent=[s/3600,s/60%60,s%60].map(v=>String(Math.floor(v)).padStart(2,"0")).join(":")}
-async function abonner(k){if(!S.me)return auth("in",()=>abonner(k));
- if(window.TogoshopSupabase&&TogoshopSupabase.enabled){
-  try{await TogoshopSupabase.chooseSellerPlan(k);S.abos[S.me.id_client]={plan:k,date:new Date().toISOString().slice(0,10)};save();go();toast("Plan "+PLANS.find(x=>x[0]==k)[1]+" activé")}
-  catch(error){toast(error.message||"Impossible de choisir ce plan")}
-  return;
+function sellerDateLabel(value){const date=new Date(value);return Number.isNaN(date.getTime())?"date indisponible":date.toLocaleDateString("fr-FR")}
+function showSellerTrialPayment(k,endDate){
+ const plan=PLANS.find(x=>x[0]===k);
+ paymentFlow={mode:"tmoney",active:false,verified:false,attempts:0};
+ show(`<h2>Essai gratuit ${plan[1]}</h2>${demoPaymentBanner()}<p><strong>0 FCFA aujourd'hui.</strong> Premier paiement de <strong>${fmt(plan[2])}</strong> le <strong>${sellerDateLabel(endDate)}</strong>. Annulable avant cette date.</p><p>Aucun frais pendant les 30 jours d’essai. La date est calculée par Supabase.</p>
+ <form id="seller-trial-payment" autocomplete="off" onsubmit="validerEssaiVendeur(event,'${k}')"><h3>Enregistrer un moyen de paiement</h3>
+ <label class="opt"><input type="radio" name="paiement" value="tmoney" checked onchange="paymentModeChanged(this.value)">T-Money</label>
+ <label class="opt"><input type="radio" name="paiement" value="flooz" onchange="paymentModeChanged(this.value)">Flooz</label>
+ <label class="opt"><input type="radio" name="paiement" value="carte" onchange="paymentModeChanged(this.value)">Carte bancaire</label>
+ <div id="payment-fields">${paymentFieldsHtml("tmoney")}</div><button class="pay" id="checkout-submit">Continuer</button></form>`)
+}
+async function validerEssaiVendeur(e,k){
+ e.preventDefault();
+ const mode=e.currentTarget.querySelector('input[name="paiement"]:checked').value;
+ try{
+  await processDemoPayment(mode,async(paymentMode)=>{
+   const endDate=await TogoshopSupabase.chooseSellerPlan(k,paymentMode);
+   await hydrateSupabaseState(false);dlg.close();go();toast("Essai gratuit jusqu’au "+sellerDateLabel(endDate))
+  },false)
+ }catch(error){toast(error.message||"Impossible d’enregistrer le moyen de paiement")}
+}
+function showSellerPayment(k){
+ const plan=PLANS.find(x=>x[0]===k);
+ paymentFlow={mode:"tmoney",active:false,verified:false,attempts:0};
+ show(`<h2>Abonnement ${plan[1]}</h2>${demoPaymentBanner()}<p><strong>${fmt(plan[2])}/mois</strong>. Le paiement de démonstration active l’abonnement pour 30 jours; aucun prélèvement récurrent n’est effectué.</p>
+ <form id="seller-payment" autocomplete="off" onsubmit="validerAbonnement(event,'${k}')"><h3>Mode de paiement</h3>
+ <label class="opt"><input type="radio" name="paiement" value="tmoney" checked onchange="paymentModeChanged(this.value)">T-Money</label>
+ <label class="opt"><input type="radio" name="paiement" value="flooz" onchange="paymentModeChanged(this.value)">Flooz</label>
+ <label class="opt"><input type="radio" name="paiement" value="carte" onchange="paymentModeChanged(this.value)">Carte bancaire</label>
+ <div id="payment-fields">${paymentFieldsHtml("tmoney")}</div><button class="pay" id="checkout-submit">Continuer</button></form>`)
+}
+async function validerAbonnement(e,k){
+ e.preventDefault();
+ const mode=e.currentTarget.querySelector('input[name="paiement"]:checked').value;
+ try{
+  await processDemoPayment(mode,async(paymentMode)=>{
+   await TogoshopSupabase.activateSellerPlan(k,paymentMode);
+   await hydrateSupabaseState(false);dlg.close();go();toast("Abonnement "+PLANS.find(x=>x[0]===k)[1]+" activé pour 30 jours")
+  },false)
+ }catch(error){toast(error.message||"Impossible d’activer l’abonnement")}
+}
+function confirmerAnnulationEssai(){
+ const subscription=S.me&&S.abos[S.me.id_client];
+ if(!subscription)return;
+ show(`<h2>Annuler l’abonnement ?</h2><p>Aucun prélèvement ne sera prévu. Vous pourrez continuer à publier jusqu’au ${sellerDateLabel(subscription.date_fin)}; ensuite l’abonnement expirera.</p><button class="ad" onclick="dlg.close()">Garder mon abonnement</button><button class="pay" onclick="annulerEssaiVendeur()">Confirmer l’annulation</button>`)
+}
+async function annulerEssaiVendeur(){
+ try{
+  await TogoshopSupabase.cancelSellerTrial();
+  await hydrateSupabaseState(false);dlg.close();go();toast("Abonnement annulé; accès maintenu jusqu’à la fin de l’essai")
+ }catch(error){toast(error.message||"Impossible d’annuler l’abonnement")}
+}
+async function abonner(k){
+ if(!S.me)return auth("in",()=>abonner(k));
+ if(!window.TogoshopSupabase||!TogoshopSupabase.enabled){toast("Supabase est requis pour calculer l’essai côté serveur.");return}
+ try{await hydrateSupabaseState(false)}
+ catch(error){toast(error.message||"Impossible d’actualiser l’abonnement");return}
+ const subscription=S.abos[S.me.id_client]||{};
+ if(subscription.statut_abonnement==="essai"&&subscription.actif){
+  if(subscription.plan===k){go();toast("Essai actif jusqu’au "+sellerDateLabel(subscription.date_fin));return}
+  if(!subscription.mode_paiement){showSellerTrialPayment(k,subscription.date_fin);return}
+  try{
+   const endDate=await TogoshopSupabase.chooseSellerPlan(k,subscription.mode_paiement);
+   await hydrateSupabaseState(false);go();toast("Plan modifié; essai gratuit jusqu’au "+sellerDateLabel(endDate))
+  }catch(error){toast(error.message||"Impossible de changer de plan")}
+  return
  }
- S.abos[S.me.id_client]={plan:k,date:new Date().toISOString().slice(0,10)};save();go();toast("Abonnement "+PLANS.find(x=>x[0]==k)[1]+" activé")}
+ if(subscription.statut_abonnement==="actif"&&subscription.actif&&subscription.plan===k){go();toast("Abonnement actif jusqu’au "+sellerDateLabel(subscription.date_fin));return}
+ if(!subscription.essai_vendeur_utilise){
+ try{const endDate=await TogoshopSupabase.previewSellerTrial(k);showSellerTrialPayment(k,endDate)}
+  catch(error){toast(error.message||"Impossible de vérifier l’essai gratuit")}
+  return
+ }
+ showSellerPayment(k)
+}
 const clean=s=>String(s).replace(/[<>&"]/g,"").trim();
 async function addProd(e){e.preventDefault();const f=Object.fromEntries(new FormData(e.target));
  if(window.TogoshopSupabase&&TogoshopSupabase.enabled){
   try{
    await TogoshopSupabase.publishProduct({nom:clean(f.nom),description:clean(f.desc),prix:+f.prix,stock:+f.stock,categorie:+f.cat});
    await initSupabaseCatalog();e.target.reset();vend();toast("Produit publié dans la boutique");
-  }catch(error){toast(error.message||"Impossible de publier le produit")}
+  }catch(error){
+   try{await hydrateSupabaseState(false);vend()}
+   catch(refreshError){toast(refreshError.message||"Impossible d’actualiser l’abonnement");return}
+   toast(error.message||"Impossible de publier le produit")
+  }
   return;
  }
  const pl=PLANS.find(x=>x[0]==S.abos[S.me.id_client].plan),n=Object.values(S.own).filter(v=>v==S.me.id_client).length;
@@ -188,16 +363,39 @@ async function partner(e){e.preventDefault();const f=Object.fromEntries(new Form
   return;
  }
  S.parts.push({id_client:S.me.id_client,type:clean(f.type),message:clean(f.msg),statut:"En étude"});save();e.target.reset();go();toast("Demande de partenariat envoyée")}
-function vend(){const me=S.me,ab=me&&S.abos[me.id_client],pl=ab&&PLANS.find(x=>x[0]==ab.plan);
- let h=`<div class="hd"><h2>Espace vendeur</h2><span>${me?"Choisissez votre abonnement":"Connectez-vous pour vous abonner"}</span></div><div class="plans">`+PLANS.map(([k,n,pr,lim,pa,ft])=>{const on=ab&&ab.plan==k;return `<div class="plan ${on?"on":""}"><h3>${n}</h3><p class="pr">${fmt(pr)}<small> / mois</small></p><ul>${ft.map(x=>`<li>${x}</li>`).join("")}</ul><button class="${on?"ad":"btn"}" ${on?"disabled":""} onclick="abonner('${k}')">${on?"Votre abonnement":ab?"Changer de plan":"Choisir ce plan"}</button></div>`}).join("")+`</div><p class="note">Paiement simulé pour la démonstration.</p>`;
- if(ab){const mine=P.filter(p=>S.own[p.id]==me.id_client),rq=S.parts.filter(x=>x.id_client==me.id_client);
+function vend(){
+ const me=S.me,ab=me&&S.abos[me.id_client],pl=ab&&ab.plan&&PLANS.find(x=>x[0]==ab.plan);
+ const remote=Boolean(window.TogoshopSupabase&&TogoshopSupabase.enabled);
+ const active=Boolean(pl&&(!remote||(ab.actif&&["essai","actif","annulé"].includes(ab.statut_abonnement))));
+ const paymentMethod=ab&&({carte:"Carte bancaire (coordonnées masquées)",tmoney:"T-Money (numéro masqué)",flooz:"Flooz (numéro masqué)"}[ab.mode_paiement]||"Aucun moyen enregistré");
+ const firstPayment=ab&&ab.date_premier_paiement?sellerDateLabel(ab.date_premier_paiement):"non renseignée";
+ const trialPayment=ab&&ab.date_premier_paiement?`Premier paiement prévu le ${sellerDateLabel(ab.date_premier_paiement)} (${pl?fmt(pl[2]):""}).`:"Aucun premier paiement n’est planifié sans moyen de paiement enregistré.";
+ let h=`<div class="hd"><h2>Espace vendeur</h2><span>${me?"Gérez votre abonnement":"Connectez-vous pour vous abonner"}</span></div><div class="plans">`+
+ PLANS.map(([k,n,pr,lim,pa,ft])=>{
+  const on=active&&ab.plan===k;
+  const label=!me?"Choisir ce plan":!remote?"Supabase requis":on&&ab.statut_abonnement==="annulé"?"Réactiver par paiement":on?"Votre abonnement":ab&&ab.essai_vendeur_utilise?"Payer pour continuer":"Démarrer l’essai gratuit";
+  const action=on&&ab.statut_abonnement!=="annulé"?"Vérifier l’abonnement":label;
+  return `<div class="plan ${on?"on":""}"><h3>${n}</h3><p class="pr">${fmt(pr)}<small> / mois après 30 jours offerts</small></p><p class="note"><strong>0 FCFA</strong> pendant les 30 premiers jours après l’inscription.</p><ul>${ft.map(x=>`<li>${x}</li>`).join("")}</ul><button class="${on?"ad":"btn"}" ${me&&!remote?"disabled":""} onclick="abonner('${k}')">${action}</button></div>`
+ }).join("")+`</div>`;
+ if(me&&!remote)h+=`<p class="note">Supabase est requis pour calculer l’essai côté serveur et enregistrer l’abonnement.</p>`;
+ else if(pl&&ab.statut_abonnement==="essai")h+=`<p class="note">Statut : essai. ${trialPayment} Moyen enregistré : ${paymentMethod}. Aucun frais pendant l’essai.</p><button class="ad" onclick="confirmerAnnulationEssai()">Annuler mon abonnement</button>`;
+ else if(pl&&ab.statut_abonnement==="annulé")h+=`<p class="note">Statut : annulé. Aucun prélèvement prévu; vous pouvez publier jusqu’au ${sellerDateLabel(ab.date_fin)}, puis l’abonnement expirera. Moyen enregistré : ${paymentMethod}. Premier paiement initialement prévu : ${firstPayment}.</p>`;
+ else if(pl&&ab.statut_abonnement==="actif")h+=`<p class="note">Statut : actif jusqu’au ${sellerDateLabel(ab.date_fin)}. Date du premier paiement : ${firstPayment}. Moyen enregistré : ${paymentMethod}.</p>`;
+ else if(pl&&ab.statut_abonnement==="expiré")h+=`<p class="note">Statut : expiré depuis le ${sellerDateLabel(ab.date_fin)}. Date du premier paiement : ${firstPayment}. Moyen enregistré : ${paymentMethod}. Payez en mode démonstration pour continuer.</p>`;
+ else if(ab&&ab.essai_vendeur_utilise)h+=`<p class="note">L’essai gratuit a déjà été utilisé. Un paiement de démonstration est requis.</p>`;
+ else if(me)h+=`<p class="note">Un essai gratuit de 30 jours est proposé une seule fois par compte.</p>`;
+
+ if(pl){
+  const mine=P.filter(p=>S.own[p.id]==me.id_client),rq=S.parts.filter(x=>x.id_client==me.id_client);
   h+=`<div class="dash"><h3>Publier un produit (${mine.length} sur ${pl[3]>1e6?"illimité":pl[3]})</h3>
-  <form class="gp" onsubmit="addProd(event)"><input class="f" name="nom" placeholder="Nom du produit" maxlength="150" required><select name="cat" aria-label="Catégorie">${CATS.map(([i,n])=>`<option value="${i}">${n}</option>`).join("")}</select>
+  ${active?`<form class="gp" onsubmit="addProd(event)"><input class="f" name="nom" placeholder="Nom du produit" maxlength="150" required><select name="cat" aria-label="Catégorie">${CATS.map(([i,n])=>`<option value="${i}">${n}</option>`).join("")}</select>
   <input class="f" name="prix" type="number" min="100" placeholder="Prix en FCFA" required><input class="f" name="stock" type="number" min="1" placeholder="Quantité en stock" required>
-  <input class="f" name="desc" placeholder="Description courte" maxlength="200" required style="grid-column:1/-1"><button class="btn" style="grid-column:1/-1;background:var(--ind);color:var(--indk)">Publier dans la boutique</button></form>
+  <input class="f" name="desc" placeholder="Description courte" maxlength="200" required style="grid-column:1/-1"><button class="btn" style="grid-column:1/-1;background:var(--ind);color:var(--indk)">Publier dans la boutique</button></form>`:`<p class="note">La publication est suspendue jusqu’à l’activation d’un abonnement.</p>`}
   <h3>Mes produits</h3>${mine.length?mine.map(p=>`<div class="opt"><span>${p.e}</span>${p.n}<b>${fmt(p.p)}</b><button class="ad" onclick="delProd(${p.id})">Retirer</button></div>`).join(""):`<p class="note">Aucun produit publié pour l’instant.</p>`}
-  <h3>Partenariats</h3>${pl[4]?`<form class="gp" onsubmit="partner(event)"><select name="type" aria-label="Type de partenariat"><option>Fournisseur</option><option>Distributeur</option><option>Livraison et transport</option><option>Financement</option><option>Publicité</option></select><input class="f" name="msg" placeholder="Décrivez votre projet" maxlength="200" required><button class="btn" style="grid-column:1/-1;background:var(--ind);color:var(--indk)">Envoyer la demande</button></form>${rq.map(x=>`<div class="opt">${x.type}<small>${x.message}</small><b>${x.statut}</b></div>`).join("")}`:`<p class="note">Les demandes de partenariat sont réservées aux plans Pro et Entreprise.</p>`}</div>`}
- $("sv").innerHTML=h}
+  <h3>Partenariats</h3>${pl[4]&&active?`<form class="gp" onsubmit="partner(event)"><select name="type" aria-label="Type de partenariat"><option>Fournisseur</option><option>Distributeur</option><option>Livraison et transport</option><option>Financement</option><option>Publicité</option></select><input class="f" name="msg" placeholder="Décrivez votre projet" maxlength="200" required><button class="btn" style="grid-column:1/-1;background:var(--ind);color:var(--indk)">Envoyer la demande</button></form>${rq.map(x=>`<div class="opt">${x.type}<small>${x.message}</small><b>${x.statut}</b></div>`).join("")}`:`<p class="note">${pl[4]?"Les demandes de partenariat nécessitent un abonnement actif.":"Les demandes de partenariat sont réservées aux plans Pro et Entreprise."}</p>`}</div>`
+ }
+ $("sv").innerHTML=h
+}
 function view(v){S.v=v;$("home").hidden=v!="home";$("shop").hidden=v!="shop";$("seller").hidden=v!="seller";go();if(window.scrollTo)window.scrollTo(0,0)}
 async function logout(){
  if(window.TogoshopSupabase&&TogoshopSupabase.enabled){
@@ -243,8 +441,9 @@ async function hydrateSupabaseState(mergeLocalCart){
  S.cart=remoteCart;
  if(favorites)S.fav=favorites;
  if(seller){
-  if(seller.plan&&seller.plan.actif)S.abos[S.me.id_client]={plan:seller.plan.plan,date:seller.plan.date_debut};
-  else delete S.abos[S.me.id_client];
+  S.abos[S.me.id_client]=seller.plan
+   ? {...seller.plan,essai_vendeur_utilise:seller.trialUsed}
+   : {essai_vendeur_utilise:seller.trialUsed};
   S.own=Object.fromEntries(seller.productIds.map(id=>[id,S.me.id_client]));
   S.parts=seller.partnerships.map(row=>({id_client:S.me.id_client,type:row.type,message:row.message,statut:row.statut}));
  }

@@ -65,12 +65,14 @@ dialog{border:0;border-radius:20px;padding:0;width:min(680px,94vw);background:va
 .dc{padding:24px;max-height:86vh;overflow:auto;position:relative}.dc>.x{position:absolute;top:14px;right:14px}.dc h2{font-size:26px;margin-bottom:12px;padding-right:40px}.dc h3{font-size:17px;margin:16px 0 8px}
 .dt{display:grid;grid-template-columns:200px 1fr;gap:22px}.dt .pic{border-radius:16px;font-size:90px;cursor:default;aspect-ratio:1}
 .gp{display:grid;grid-template-columns:1fr 1fr;gap:10px}.opt{display:flex;gap:8px;align-items:center;border:1px solid var(--ln);border-radius:12px;padding:10px 12px;margin-bottom:8px}.opt b{margin-left:auto}
+.demo-banner{background:#fff3cd;color:#664d03;border:1px solid #ffecb5;border-radius:10px;padding:12px;margin:12px 0}.demo-note{background:var(--bg);border-radius:10px;padding:10px 12px;margin:8px 0}.payment-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.payment-grid label{display:grid;gap:6px}#payment-fields{margin:12px 0}#payment-fields small{display:block;color:var(--mu);margin-top:6px}#payment-fields .ad{margin:8px 8px 0 0}
 .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}.tabs button{border:1px solid var(--ln);background:var(--bg);border-radius:999px;padding:6px 14px}.tabs button[aria-pressed=true]{background:var(--ind);color:var(--indk)}
 .tw{overflow-x:auto}table{border-collapse:collapse;font-size:13px;width:100%}th,td{border-bottom:1px solid var(--ln);padding:6px 10px;text-align:left;white-space:nowrap}th{color:var(--mu);font-weight:500}
 pre{background:var(--bg);border-radius:12px;padding:12px;font-size:12px;overflow:auto;max-height:220px}
 .ro{display:flex;justify-content:space-between;padding:3px 0}.msg{color:var(--rd);font-size:14px;min-height:20px}
 #toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translate(-50%,40px);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:12px;opacity:0;transition:.25s;z-index:20;pointer-events:none}#toast.on{opacity:1;transform:translate(-50%,0)}
 @media (max-width:860px){.hero,.shop,footer .w{grid-template-columns:1fr}.trust{grid-template-columns:1fr 1fr}.flt{position:static}.dt{grid-template-columns:1fr}.big{padding:32px 24px}.ib span{display:none}}
+@media (max-width:520px){.payment-grid{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
 
 .pic img,.ln .t img{width:100%;height:100%;object-fit:cover;display:block}.ln .t{overflow:hidden}

@@ -69,7 +69,10 @@ begin
     'public.publish_product(text, text, numeric, integer, bigint)',
     'EXECUTE'
   )
-  or has_function_privilege('anon', 'public.choose_seller_plan(text)', 'EXECUTE')
+  or has_function_privilege('anon', 'public.choose_seller_plan(text, text)', 'EXECUTE')
+  or has_function_privilege('anon', 'public.preview_seller_trial(text)', 'EXECUTE')
+  or has_function_privilege('anon', 'public.activate_seller_plan(text, text)', 'EXECUTE')
+  or has_function_privilege('anon', 'public.cancel_seller_trial()', 'EXECUTE')
   or has_function_privilege('anon', 'public.request_partnership(text, text)', 'EXECUTE')
   or has_function_privilege('anon', 'public.remove_product(bigint)', 'EXECUTE') then
     raise exception 'Les visiteurs anonymes ne doivent pas exécuter les RPC métier';
@@ -79,8 +82,28 @@ begin
     'authenticated',
     'public.place_order(text, text, text, text, text)',
     'EXECUTE'
+  )
+  or not has_function_privilege(
+    'authenticated',
+    'public.choose_seller_plan(text, text)',
+    'EXECUTE'
+  )
+  or not has_function_privilege(
+    'authenticated',
+    'public.preview_seller_trial(text)',
+    'EXECUTE'
+  )
+  or not has_function_privilege(
+    'authenticated',
+    'public.activate_seller_plan(text, text)',
+    'EXECUTE'
+  )
+  or not has_function_privilege(
+    'authenticated',
+    'public.cancel_seller_trial()',
+    'EXECUTE'
   ) then
-    raise exception 'Les utilisateurs authentifiés doivent pouvoir exécuter place_order';
+    raise exception 'Les utilisateurs authentifiés doivent pouvoir exécuter les RPC métier';
   end if;
 end;
 $$;

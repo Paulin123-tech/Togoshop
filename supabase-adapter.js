@@ -158,23 +158,51 @@ window.TogoshopSupabase = (() => {
     if (result.error) throw result.error;
   }
 
-  async function placeOrder(adresse, ville, modeLivraison, paiement, code) {
+  async function placeOrder(adresse, ville, modeLivraison, paymentMode, promoCode) {
     if (!client) throw new Error("Supabase local n'est pas configure");
     const { data, error } = await client.rpc("place_order", {
       p_adresse: adresse,
       p_ville: ville,
       p_mode_livraison: modeLivraison,
-      p_paiement: paiement,
-      p_code: code || null
+      p_paiement: paymentMode,
+      p_code: promoCode || null
     });
     if (error) throw error;
     return data;
   }
 
-  async function chooseSellerPlan(plan) {
+  async function chooseSellerPlan(plan, paymentMode) {
     if (!client) throw new Error("Supabase local n'est pas configure");
-    const { error } = await client.rpc("choose_seller_plan", { p_plan: plan });
+    const { data, error } = await client.rpc("choose_seller_plan", {
+      p_plan: plan,
+      p_mode_paiement: paymentMode
+    });
     if (error) throw error;
+    return data;
+  }
+
+  async function cancelSellerTrial() {
+    if (!client) throw new Error("Supabase local n'est pas configure");
+    const { data, error } = await client.rpc("cancel_seller_trial");
+    if (error) throw error;
+    return data;
+  }
+
+  async function previewSellerTrial(plan) {
+    if (!client) throw new Error("Supabase local n'est pas configure");
+    const { data, error } = await client.rpc("preview_seller_trial", { p_plan: plan });
+    if (error) throw error;
+    return data;
+  }
+
+  async function activateSellerPlan(plan, paymentMode) {
+    if (!client) throw new Error("Supabase local n'est pas configure");
+    const { data, error } = await client.rpc("activate_seller_plan", {
+      p_plan: plan,
+      p_mode_paiement: paymentMode
+    });
+    if (error) throw error;
+    return data;
   }
 
   async function publishProduct(product) {
@@ -236,10 +264,12 @@ window.TogoshopSupabase = (() => {
     if (!client) return null;
     const profile = await getProfile();
     if (!profile) return null;
-    const [seller, products, partnerships] = await Promise.all([
+    const { error: refreshError } = await client.rpc("refresh_seller_subscription");
+    if (refreshError) throw refreshError;
+    const [seller, products, partnerships, account] = await Promise.all([
       client
         .from("profil_vendeur")
-        .select("plan, date_debut, date_fin, actif")
+        .select("plan, date_debut, date_fin, date_premier_paiement, actif, statut_abonnement, mode_paiement")
         .eq("id_client", profile.id_client)
         .maybeSingle(),
       client
@@ -250,13 +280,22 @@ window.TogoshopSupabase = (() => {
         .from("demande_partenariat")
         .select("id_partenariat, type, message, statut")
         .eq("id_client", profile.id_client)
-        .order("cree_le", { ascending: false })
+        .order("cree_le", { ascending: false }),
+      client
+        .from("client")
+        .select("essai_vendeur_utilise")
+        .eq("id_client", profile.id_client)
+        .single()
     ]);
     if (seller.error) throw seller.error;
     if (products.error) throw products.error;
     if (partnerships.error) throw partnerships.error;
+    if (account.error) throw account.error;
     return {
-      plan: seller.data,
+      plan: seller.data
+        ? { ...seller.data, essai_vendeur_utilise: account.data.essai_vendeur_utilise }
+        : null,
+      trialUsed: account.data.essai_vendeur_utilise,
       productIds: (products.data || []).map(row => row.id_produit),
       partnerships: partnerships.data || []
     };
@@ -277,6 +316,9 @@ window.TogoshopSupabase = (() => {
     setFavorite,
     placeOrder,
     chooseSellerPlan,
+    cancelSellerTrial,
+    previewSellerTrial,
+    activateSellerPlan,
     publishProduct,
     removeProduct,
     requestPartnership,

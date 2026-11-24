@@ -76,13 +76,10 @@ Ouvrir ce dossier dans VS Code, puis clic droit sur `index.html` > "Open with Li
 - Les notes (étoiles), les voitures d'occasion et les maisons sont fictives.
 - Quand DATA_VERSION change dans `data.js`, le navigateur remet à zéro le panier, les favoris, les commandes et les produits de vendeurs enregistrés localement.
 
-## Fonctions hors schéma (front uniquement, à valider avec le groupe)
-Le schéma de référence n'a que 5 tables. Ces fonctions sont simulées dans le navigateur (localStorage) et n'écrivent rien dans la base :
-- abonnements des entrepreneurs (Starter, Pro, Entreprise)
-- propriétaire d'un produit publié par un vendeur (badge "Vendeur partenaire")
-- demandes de partenariat
-Les produits publiés par un vendeur (image = images/<id_produit>.jpg) sont, eux, de vraies lignes de la table produit (mêmes colonnes).
-Pour les stocker en base, il faudrait ajouter par exemple : une table abonnement (id_abonnement, id_client, plan, date_debut), une table partenariat (id_partenariat, id_client, type, message, statut) et une colonne produit.id_vendeur (clé étrangère vers client). À décider avec le groupe, puisque le schéma est imposé.
+## Espace vendeur
+Avec Supabase et les migrations appliquées, le plan et son statut sont enregistrés dans `profil_vendeur`, l'utilisation de l'essai dans `client`, les produits associés au vendeur dans `produit_vendeur` et les demandes dans `demande_partenariat`. Le moyen de paiement de démonstration est demandé avant le démarrage de l'essai; la date de fin des 30 jours est calculée par la base. L'essai peut être annulé depuis l'espace vendeur, tout en conservant l'accès jusqu'à sa date de fin.
+
+Le paiement d'abonnement est une simulation : aucune somme n'est prélevée. N'utilisez que les coordonnées de test affichées dans le formulaire. Sans Supabase, les fonctions vendeur restent simulées localement dans le navigateur.
 
 ## Voitures et maisons
 Ce sont des lignes de la table produit rangées dans les catégories "Voitures neuves", "Voitures d'occasion" et "Maisons à vendre". Le bouton "Réserver" passe par le panier, et la commande reçoit le statut "Réservation à confirmer". Les annonces sont fictives.
